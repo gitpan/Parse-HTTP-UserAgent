@@ -1,0 +1,22 @@
+builder/Build.pm
+Build.PL
+Changes
+MANIFEST
+README
+SPEC
+eg/dump.pl
+lib/Parse/HTTP/UserAgent.pm
+lib/Parse/HTTP/UserAgent/Constants.pm
+lib/Parse/HTTP/UserAgent/Dumper.pm
+lib/Parse/HTTP/UserAgent/IS.pm
+lib/Parse/HTTP/UserAgent/Parsers.pm
+t/02-parser.t
+t/03-strings.t
+t/data/parse.dat
+t/db.pl
+builder/Build/Spec.pm
+t/201-pod.t
+t/202-pod-coverage.t
+Makefile.PL	Generated automatically
+LICENSE
+META.yml
