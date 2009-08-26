@@ -2,7 +2,7 @@ package Parse::HTTP::UserAgent;
 use strict;
 use vars qw( $VERSION );
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 use base qw(
     Parse::HTTP::UserAgent::IS
@@ -278,12 +278,12 @@ Parse::HTTP::UserAgent - Parser for the User Agent string
    print $ua->version;
    print $ua->os;
    # or just dump for debugging:
-   print $ua->dump;
+   print $ua->dumper;
 
 =head1 DESCRIPTION
 
-This document describes version C<0.10> of C<Parse::HTTP::UserAgent>
-released on C<25 August 2009>.
+This document describes version C<0.11> of C<Parse::HTTP::UserAgent>
+released on C<26 August 2009>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 

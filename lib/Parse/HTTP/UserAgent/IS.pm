@@ -3,7 +3,7 @@ use strict;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 sub _is_opera_pre {
     my $self = shift;
@@ -103,8 +103,8 @@ Parse::HTTP::UserAgent::IS - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.10> of C<Parse::HTTP::UserAgent::IS>
-released on C<25 August 2009>.
+This document describes version C<0.11> of C<Parse::HTTP::UserAgent::IS>
+released on C<26 August 2009>.
 
 Internal module.
 

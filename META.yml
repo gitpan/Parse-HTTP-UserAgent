@@ -1,6 +1,6 @@
 ---
 name: Parse-HTTP-UserAgent
-version: 0.10
+version: 0.11
 author:
   - 'Burak Gursoy <burak@cpan.org>'
 abstract: Parser for the User Agent string
@@ -17,19 +17,19 @@ configure_requires:
 provides:
   Parse::HTTP::UserAgent:
     file: lib/Parse/HTTP/UserAgent.pm
-    version: 0.10
+    version: 0.11
   Parse::HTTP::UserAgent::Constants:
     file: lib/Parse/HTTP/UserAgent/Constants.pm
-    version: 0.10
+    version: 0.11
   Parse::HTTP::UserAgent::Dumper:
     file: lib/Parse/HTTP/UserAgent/Dumper.pm
-    version: 0.10
+    version: 0.11
   Parse::HTTP::UserAgent::IS:
     file: lib/Parse/HTTP/UserAgent/IS.pm
-    version: 0.10
+    version: 0.11
   Parse::HTTP::UserAgent::Parsers:
     file: lib/Parse/HTTP/UserAgent/Parsers.pm
-    version: 0.10
+    version: 0.11
 no_index:
   directory:
     - monolithic_version
