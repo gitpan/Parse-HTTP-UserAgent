@@ -2,12 +2,13 @@ package Parse::HTTP::UserAgent;
 use strict;
 use vars qw( $VERSION );
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 use base qw(
-    Parse::HTTP::UserAgent::IS
-    Parse::HTTP::UserAgent::Parsers
-    Parse::HTTP::UserAgent::Dumper
+    Parse::HTTP::UserAgent::Base::IS
+    Parse::HTTP::UserAgent::Base::Parsers
+    Parse::HTTP::UserAgent::Base::Dumper
+    Parse::HTTP::UserAgent::Base::Accessors
 );
 use overload '""',    => 'name',
              '0+',    => 'version',
@@ -42,58 +43,6 @@ sub new {
     $self->_parse;
     $self;
 }
-
-#------------------------------------------------------------------------------#
-
-sub name    { shift->[UA_NAME]    || '' }
-sub unknown { shift->[UA_UNKNOWN] || '' }
-sub generic { shift->[UA_GENERIC] || '' }
-sub os      { shift->[UA_OS]      || '' }
-sub lang    { shift->[UA_LANG]    || '' }
-sub robot   { shift->[UA_ROBOT]   || 0  }
-
-sub original_name    { shift->[UA_ORIGINAL_NAME]    || '' }
-sub original_version { shift->[UA_ORIGINAL_VERSION] || '' }
-
-sub version {
-    my $self = shift;
-    my $type = shift || '';
-    return $self->[ $type eq 'raw' ? UA_VERSION_RAW : UA_VERSION ] || 0;
-}
-
-sub mozilla {
-    my $self = shift;
-    return +() if ! $self->[UA_MOZILLA];
-    my @rv = @{ $self->[UA_MOZILLA] };
-    return wantarray ? @rv : $rv[0];
-}
-
-sub toolkit {
-    my $self = shift;
-    return +() if ! $self->[UA_TK];
-    return @{ $self->[UA_TK] };
-}
-
-sub extras {
-    my $self = shift;
-    return +() if ! $self->[UA_EXTRAS];
-    return @{ $self->[UA_EXTRAS] };
-}
-
-sub dotnet {
-    my $self = shift;
-    return +() if ! $self->[UA_DOTNET];
-    return @{ $self->[UA_DOTNET] };
-}
-
-#TODO: new accessors
-#strength
-#wap
-#mobile
-#parser
-#device
-
-#------------------------------------------------------------------------------#
 
 sub as_hash {
     my $self   = shift;
@@ -144,8 +93,8 @@ sub _parse {
     }
     $self->[UA_EXTRAS] = [ @buf ];
 
-    if ( $self->[UA_TK] ) {
-        push @{ $self->[UA_TK] }, $self->_numify( $self->[UA_TK][1] );
+    if ( $self->[UA_TOOLKIT] ) {
+        push @{ $self->[UA_TOOLKIT] }, $self->_numify( $self->[UA_TOOLKIT][1] );
     }
 
     if( $self->[UA_MOZILLA] ) {
@@ -239,7 +188,7 @@ sub _numify {
                  $w !~ m{Version string .+? contains invalid data; ignoring:};
         warn $w if $ok;
     };
-    my $rv = qv($v)->numify;
+    my $rv = version->new("$v")->numify;
     return $rv;
 }
 
@@ -282,8 +231,8 @@ Parse::HTTP::UserAgent - Parser for the User Agent string
 
 =head1 DESCRIPTION
 
-This document describes version C<0.11> of C<Parse::HTTP::UserAgent>
-released on C<26 August 2009>.
+This document describes version C<0.12> of C<Parse::HTTP::UserAgent>
+released on C<27 August 2009>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
@@ -328,33 +277,8 @@ Returns a hash representation of the parsed structure.
 
 =head2 accessors
 
-Ther methods can be used to access the various parts of the parsed structure.
-
-=head3 dotnet
-
-=head3 extras
-
-=head3 generic
-
-=head3 lang
-
-=head3 mozilla
-
-=head3 name
-
-=head3 original_name
-
-=head3 original_version
-
-=head3 os
-
-=head3 robot
-
-=head3 toolkit
-
-=head3 unknown
-
-=head3 version
+See L<Parse::HTTP::UserAgent::Accessors> for the available accessors you can
+use on the parsed object.
 
 =head1 SEE ALSO
 

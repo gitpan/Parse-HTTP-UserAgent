@@ -1,10 +1,10 @@
-package Parse::HTTP::UserAgent::Dumper;
+package Parse::HTTP::UserAgent::Base::Dumper;
 use strict;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use Carp qw( croak );
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 sub dumper {
     my $self = shift;
@@ -33,14 +33,17 @@ sub _dumper_json {
     my $self = shift;
     my $opt  = shift;
     require JSON;
-    JSON::to_json( $self->_dump_to_struct, { pretty => $opt->{format} eq 'pretty' });
+    return  JSON::to_json(
+                $self->_dump_to_struct,
+                { pretty => $opt->{format} eq 'pretty' }
+            );
 }
 
 sub _dumper_xml {
     my $self = shift;
     my $opt  = shift;
     require XML::Simple;
-    XML::Simple::XMLout(
+    return  XML::Simple::XMLout(
         $self->_dump_to_struct,
         RootName => 'ua',
         NoIndent => $opt->{format} ne 'pretty',
@@ -51,7 +54,7 @@ sub _dumper_yaml {
     my $self = shift;
     my $opt  = shift;
     require YAML;
-    YAML::Dump( $self->_dump_to_struct );
+    return  YAML::Dump( $self->_dump_to_struct );
 }
 
 sub _dumper_dumper {
@@ -62,10 +65,11 @@ sub _dumper_dumper {
     my $max  = 0;
     map { my $l = length $_; $max = $l if $l > $max; } @ids;
     my @titles = qw( FIELD VALUE );
-    my $buf  = sprintf "%s%s%s\n%s%s%s\n", $titles[0],
-                                   (' ' x (2 + $max - length $titles[0])),
-                                   $titles[1],
-                                   '-' x $max, ' ' x 2, '-' x ($max*2);
+    my $buf    = sprintf "%s%s%s\n%s%s%s\n",
+                        $titles[0],
+                        (' ' x (2 + $max - length $titles[0])),
+                        $titles[1],
+                        '-' x $max, ' ' x 2, '-' x ($max*2);
     require Data::Dumper;
     foreach my $id ( @ids ) {
         my $name = $args ? $id->{name} : $id;
@@ -99,8 +103,8 @@ Parse::HTTP::UserAgent::Dumper - Base class to dump parsed structure
 
 =head1 DESCRIPTION
 
-This document describes version C<0.11> of C<Parse::HTTP::UserAgent::Dumper>
-released on C<26 August 2009>.
+This document describes version C<0.12> of C<Parse::HTTP::UserAgent::Base::Dumper>
+released on C<27 August 2009>.
 
 The parsed structure can be dumped to a text table for debugging.
 

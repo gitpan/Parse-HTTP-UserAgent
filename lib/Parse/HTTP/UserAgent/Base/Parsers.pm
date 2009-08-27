@@ -1,10 +1,11 @@
-package Parse::HTTP::UserAgent::Parsers;
+package Parse::HTTP::UserAgent::Base::Parsers;
 use strict;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use version;
+use Carp qw(croak);
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 sub _extract_dotnet {
     my $self = shift;
@@ -70,22 +71,21 @@ sub _parse_maxthon {
     }
 
     # make this a warning after development?
-    die "Unable to extract Maxthon version from Maxthon UA-string" if ! $maxthon;
-    die "Unable to extract MSIE from Maxthon UA-string" if ! $msie;
+    croak "Unable to extract Maxthon version from Maxthon UA-string" if ! $maxthon;
+    croak "Unable to extract MSIE from Maxthon UA-string" if ! $msie;
 
     $self->_parse_msie($moz, [ undef, @buf ], undef, split /\s+/, $msie);
 
     my(undef, $mv) = split m{ \s+ }xms, $maxthon;
-    $self->[UA_ORIGINAL_VERSION] = $mv || do {
-        $maxthon ? '1.0' : die "Unable to extract Maxthon version?"
-    };
+    $self->[UA_ORIGINAL_VERSION] = $mv || (
+        $maxthon ? '1.0' : croak "Unable to extract Maxthon version?"
+    );
     $self->[UA_ORIGINAL_NAME] = 'Maxthon';
     return;
 }
 
 sub _parse_msie {
-    my $self = shift;
-    my($moz, $thing, $extra, $name, $version) = @_;
+    my($self, $moz, $thing, $extra, $name, $version) = @_;
     my $junk = shift @{ $thing }; # already used
     # "Microsoft Internet Explorer";
 
@@ -106,7 +106,7 @@ sub _parse_msie {
     my @buf;
     foreach my $e ( @{ $extras } ) {
         if ( $e =~ m{ \A (Trident) / (.+?) \z }xmsi ) {
-            $self->[UA_TK] = [ $1, $2 ];
+            $self->[UA_TOOLKIT] = [ $1, $2 ];
             next;
         }
         push @buf, $e;
@@ -125,18 +125,18 @@ sub _parse_firefox {
 sub _parse_safari {
     my $self = shift;
     my($moz, $thing, $extra, @others) = @_;
-    $self->[UA_NAME]         = 'Safari';
-    my($version, @junk)      = split m{\s+}xms, pop @others;
-    (undef, $version)        = split RE_SLASH, $version;
-    $self->[UA_NAME]         = 'Safari';
-    $self->[UA_VERSION_RAW]  = $version;
-    $self->[UA_TK]           = [ split RE_SLASH, $extra->[0] ];
-    $self->[UA_LANG]         = pop @{ $thing };
-    $self->[UA_OS]           = length $thing->[-1] > 1 ? pop @{ $thing }
-                                                       : shift @{$thing}
-                             ;
-    $self->[UA_DEVICE]       = shift @{$thing} if $thing->[0] eq 'iPhone';
-    $self->[UA_EXTRAS]       = [ @{$thing}, @others ];
+    $self->[UA_NAME]        = 'Safari';
+    my($version, @junk)     = split m{\s+}xms, pop @others;
+    (undef, $version)       = split RE_SLASH, $version;
+    $self->[UA_NAME]        = 'Safari';
+    $self->[UA_VERSION_RAW] = $version;
+    $self->[UA_TOOLKIT]     = [ split RE_SLASH, $extra->[0] ];
+    $self->[UA_LANG]        = pop @{ $thing };
+    $self->[UA_OS]          = length $thing->[-1] > 1 ? pop @{ $thing }
+                                                      : shift @{$thing}
+                            ;
+    $self->[UA_DEVICE]      = shift @{$thing} if $thing->[0] eq 'iPhone';
+    $self->[UA_EXTRAS]      = [ @{$thing}, @others ];
 
     if ( length($self->[UA_OS]) == 1 ) {
         push @{$self->[UA_EXTRAS]}, $self->[UA_EXTRAS];
@@ -171,9 +171,9 @@ sub _parse_opera_pre {
    ($self->[UA_LANG]        = pop @{$extra}) =~ tr/[]//d if $extra;
     $self->[UA_LANG]      ||= pop @{$thing} if $faking_ff;
 
-    if ( qv($version) >= 9 && $self->[UA_LANG] && length($self->[UA_LANG]) > 5 ) {
-        $self->[UA_TK]   = [ split RE_SLASH, $self->[UA_LANG] ];
-       ($self->[UA_LANG] = pop @{$thing}) =~ tr/[]//d if $extra;
+    if ( version->parse($version) >= 9 && $self->[UA_LANG] && length($self->[UA_LANG]) > 5 ) {
+        $self->[UA_TOOLKIT] = [ split RE_SLASH, $self->[UA_LANG] ];
+       ($self->[UA_LANG]    = pop @{$thing}) =~ tr/[]//d if $extra;
     }
 
     $self->[UA_OS]     = $self->_is_strength($thing->[-1]) ? shift @{$thing}
@@ -205,7 +205,7 @@ sub _parse_mozilla_family {
                              :                                       $moz
                              ;
     $self->[UA_NAME]         = $name;
-    $self->[UA_TK]           = [ split RE_SLASH, $extra->[0] ];
+    $self->[UA_TOOLKIT]      = [ split RE_SLASH, $extra->[0] ];
     $self->[UA_VERSION_RAW]  = $version;
 
     if ( index($thing->[-1], 'rv:') != -1 ) {
@@ -217,7 +217,6 @@ sub _parse_mozilla_family {
     $self->[UA_EXTRAS] = [ @{ $thing }, @extras ];
     return;
 }
-
 
 sub _parse_gecko {
     my $self = shift;
@@ -257,7 +256,7 @@ sub _parse_gecko {
         return 1 ;
     }
 
-    if ( $self->[UA_TK] && $self->[UA_TK][0] eq 'Gecko' ) {
+    if ( $self->[UA_TOOLKIT] && $self->[UA_TOOLKIT][0] eq 'Gecko' ) {
         ($self->[UA_NAME], $self->[UA_VERSION_RAW]) = split RE_SLASH, $moz;
         if ( $self->[UA_NAME] && $self->[UA_VERSION_RAW] ) {
             $self->[UA_PARSER] = 'mozilla_family:gecko';
@@ -397,8 +396,8 @@ Parse::HTTP::UserAgent::Parsers - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.11> of C<Parse::HTTP::UserAgent::Parsers>
-released on C<26 August 2009>.
+This document describes version C<0.12> of C<Parse::HTTP::UserAgent::Base::Parsers>
+released on C<27 August 2009>.
 
 Internal module.
 
