@@ -2,7 +2,7 @@ package Parse::HTTP::UserAgent;
 use strict;
 use vars qw( $VERSION );
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -27,6 +27,7 @@ my %OSFIX = (
     'WinNT'          => 'Windows NT',
     'Win95'          => 'Windows 95',
     'Win98'          => 'Windows 98',
+    'Win 9x 4.90'    => 'Windows Me',
     'Windows NT 5.0' => 'Windows 2000',
     'Windows NT 5.1' => 'Windows XP',
     'Windows NT 5.2' => 'Windows Server 2003',
@@ -41,7 +42,7 @@ sub new {
     bless $self, $class;
     $self->[UA_STRING] = $ua;
     $self->_parse;
-    $self;
+    return $self;
 }
 
 sub as_hash {
@@ -67,54 +68,21 @@ sub trim {
 sub _parse {
     my $self = shift;
     return $self if $self->[IS_PARSED];
-    $self->[IS_MAXTHON] = index(uc $self->[UA_STRING], 'MAXTHON') != -1;
+    $self->_do_parse( $self->_pre_parse );
+    $self->[IS_PARSED] = 1;
+    $self->_post_parse if ! $self->[UA_UNKNOWN];
+    return;
+}
 
+sub _pre_parse {
+    my $self = shift;
+    $self->[IS_MAXTHON] = index(uc $self->[UA_STRING], 'MAXTHON') != -1;
     my $ua = $self->[UA_STRING];
     my($moz, $thing, $extra, @others) = split RE_SPLIT_PARSE, $ua;
     $thing = $thing ? [ split m{;\s?}xms, $thing ] : [];
     $extra = [ split m{ \s+}xms, $extra ] if $extra;
-
     $self->_debug_pre_parse( $moz, $thing, $extra, @others ) if DEBUG;
-    $self->_do_parse($moz, $thing, $extra, @others);
-    $self->[IS_PARSED]  = 1;
-
-    return $self if $self->[UA_UNKNOWN];
-
-    $self->[UA_VERSION] = $self->_numify( $self->[UA_VERSION_RAW] )
-        if $self->[UA_VERSION_RAW];
-
-    my @buf;
-    foreach my $e ( @{ $self->[UA_EXTRAS] } ) {
-        if ( $self->_is_strength( $e ) ) {
-            $self->[UA_STRENGTH] = $e ;
-            next;
-        }
-        push @buf, $e;
-    }
-    $self->[UA_EXTRAS] = [ @buf ];
-
-    if ( $self->[UA_TOOLKIT] ) {
-        push @{ $self->[UA_TOOLKIT] }, $self->_numify( $self->[UA_TOOLKIT][1] );
-    }
-
-    if( $self->[UA_MOZILLA] ) {
-        $self->[UA_MOZILLA] =~ tr/a-z://d;
-        $self->[UA_MOZILLA] = [ $self->[UA_MOZILLA],
-                                $self->_numify( $self->[UA_MOZILLA] ) ];
-    }
-
-    if ( $self->[UA_OS] ) {
-        $self->[UA_OS] = $OSFIX{ $self->[UA_OS] } || $self->[UA_OS];
-    }
-
-    foreach my $robo ( LIST_ROBOTS ) {
-        if ( lc($robo) eq lc($self->[UA_NAME]) ) {
-            $self->[UA_ROBOT] = 1;
-            last;
-        }
-    }
-
-    return;
+    return $moz, $thing, $extra, @others;
 }
 
 sub _do_parse {
@@ -153,6 +121,44 @@ sub _do_parse {
     return;
 }
 
+sub _post_parse {
+    my $self = shift;
+    $self->[UA_VERSION] = $self->_numify( $self->[UA_VERSION_RAW] )
+        if $self->[UA_VERSION_RAW];
+
+    my @buf;
+    foreach my $e ( @{ $self->[UA_EXTRAS] } ) {
+        if ( $self->_is_strength( $e ) ) {
+            $self->[UA_STRENGTH] = $e ;
+            next;
+        }
+        push @buf, $e;
+    }
+
+    $self->[UA_EXTRAS] = [ @buf ];
+
+    if ( $self->[UA_TOOLKIT] ) {
+        push @{ $self->[UA_TOOLKIT] }, $self->_numify( $self->[UA_TOOLKIT][1] );
+    }
+
+    if( $self->[UA_MOZILLA] ) {
+        $self->[UA_MOZILLA] =~ tr/a-z://d;
+        $self->[UA_MOZILLA] = [ $self->[UA_MOZILLA],
+                                $self->_numify( $self->[UA_MOZILLA] ) ];
+    }
+
+    if ( $self->[UA_OS] ) {
+        $self->[UA_OS] = $OSFIX{ $self->[UA_OS] } || $self->[UA_OS];
+    }
+
+    foreach my $robo ( LIST_ROBOTS ) { # regex???
+        next if lc $robo ne lc $self->[UA_NAME];
+        $self->[UA_ROBOT] = 1;
+        last;
+    }
+    return;
+}
+
 sub _extended_probe {
     my $self = shift;
     my($moz, $thing, $extra, $compatible, @others) = @_;
@@ -172,7 +178,6 @@ sub _object_ids {
 sub _numify {
     my $self = shift;
     my $v    = shift || return 0;
-    #warn "NUMIFY: $v\n";
     $v    =~ s{
                 pre      |
                 \-stable |
@@ -231,8 +236,8 @@ Parse::HTTP::UserAgent - Parser for the User Agent string
 
 =head1 DESCRIPTION
 
-This document describes version C<0.12> of C<Parse::HTTP::UserAgent>
-released on C<27 August 2009>.
+This document describes version C<0.13> of C<Parse::HTTP::UserAgent>
+released on C<28 August 2009>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
@@ -275,9 +280,13 @@ Trims the string.
 
 Returns a hash representation of the parsed structure.
 
+=head2 dumper
+
+See L<Parse::HTTP::UserAgent::Base::Dumper>.
+
 =head2 accessors
 
-See L<Parse::HTTP::UserAgent::Accessors> for the available accessors you can
+See L<Parse::HTTP::UserAgent::Base::Accessors> for the available accessors you can
 use on the parsed object.
 
 =head1 SEE ALSO

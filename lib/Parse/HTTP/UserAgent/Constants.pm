@@ -2,7 +2,7 @@ package Parse::HTTP::UserAgent::Constants;
 use strict;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 BEGIN { $OID = -1 }
 use constant UA_STRING           => ++$OID; # just for information
@@ -103,8 +103,8 @@ Parse::HTTP::UserAgent::Constants - Various constants
 
 =head1 DESCRIPTION
 
-This document describes version C<0.12> of C<Parse::HTTP::UserAgent::Constants>
-released on C<27 August 2009>.
+This document describes version C<0.13> of C<Parse::HTTP::UserAgent::Constants>
+released on C<28 August 2009>.
 
 Internal module
 

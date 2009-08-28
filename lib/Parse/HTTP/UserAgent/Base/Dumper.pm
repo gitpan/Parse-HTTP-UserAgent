@@ -4,7 +4,7 @@ use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use Carp qw( croak );
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 
 sub dumper {
     my $self = shift;
@@ -99,12 +99,12 @@ __END__
 
 =head1 NAME
 
-Parse::HTTP::UserAgent::Dumper - Base class to dump parsed structure
+Parse::HTTP::UserAgent::Base::Dumper - Base class to dump parsed structure
 
 =head1 DESCRIPTION
 
-This document describes version C<0.12> of C<Parse::HTTP::UserAgent::Base::Dumper>
-released on C<27 August 2009>.
+This document describes version C<0.13> of C<Parse::HTTP::UserAgent::Base::Dumper>
+released on C<28 August 2009>.
 
 The parsed structure can be dumped to a text table for debugging.
 
