@@ -3,11 +3,11 @@ use strict;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
-    return index( $moz, "Opera") != -1;
+    return index( $moz, 'Opera') != -1;
 }
 
 sub _is_opera_post {
@@ -22,31 +22,34 @@ sub _is_opera_ff { # opera faking as firefox
 
 sub _is_safari {
     my($self, $extra, $others) = @_;
-    return index($self->[UA_STRING],'Chrome') == -1 && (
-                    ( $extra  && index( $extra->[0], "AppleWebKit")  != -1 ) ||
-                    ( @{$others} && index( $others->[-1], "Safari" ) != -1 )
-                   );
+    my $str = $self->[UA_STRING];
+    # epiphany?
+    return                index( $str         , 'Chrome'     ) != -1 ? 0 # faker
+          :    $extra  && index( $extra->[0]  , 'AppleWebKit') != -1 ? 1
+          : @{$others} && index( $others->[-1], 'Safari'     ) != -1 ? 1
+          :                                                            0
+          ;
 }
 
 sub _is_chrome {
     my($self, $extra, $others) = @_;
     my $chx = $others->[1] || return;
-    my($chrome, $safari) = split m{\s}xms, $chx;
+    my($chrome, $safari) = split RE_WHITESPACE, $chx;
     return if ! ( $chrome && $safari);
 
-    return index($chrome,'Chrome') != -1 &&
-           index($safari,'Safari') != -1 &&
-           ( $extra  && index( $extra->[0], "AppleWebKit") != -1);
+    return              index( $chrome    , 'Chrome'     ) != -1 &&
+                        index( $safari    , 'Safari'     ) != -1 &&
+           ( $extra  && index( $extra->[0], 'AppleWebKit') != -1);
 }
 
 sub _is_ff {
     my($self, $extra) = @_;
-    return $extra && $extra->[1] && (
-                    ($extra->[1] eq 'Mozilla' && $extra->[2])
-                        ? $extra->[2] =~ RE_FIREFOX_NAMES
-                                && do { $extra->[1] = $extra->[2] }
-                        : $extra->[1] =~ RE_FIREFOX_NAMES
-                 );
+    return if ! $extra || ! $extra->[1];
+    my $moz_with_name = $extra->[1] eq 'Mozilla' && $extra->[2];
+    return $moz_with_name
+        ? $extra->[2] =~ RE_FIREFOX_NAMES && do { $extra->[1] = $extra->[2] }
+        : $extra->[1] =~ RE_FIREFOX_NAMES
+    ;
 }
 
 sub _is_gecko {
@@ -94,8 +97,8 @@ Parse::HTTP::UserAgent::Base::IS - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.13> of C<Parse::HTTP::UserAgent::Base::IS>
-released on C<28 August 2009>.
+This document describes version C<0.14> of C<Parse::HTTP::UserAgent::Base::IS>
+released on C<29 August 2009>.
 
 Internal module.
 

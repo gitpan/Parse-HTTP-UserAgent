@@ -4,16 +4,15 @@ use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use Carp qw( croak );
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 sub dumper {
     my $self = shift;
-    my %opt  = @_ % 2 ? () : (@_);
-    %opt = (
+    my %opt  = @_ % 2 ? () : (
         type      => 'dumper',
         format    => 'none',
         interpret => 0,
-        %opt
+        @_
     );
     my $meth = '_dumper_' . lc($opt{type});
     croak "Don't know how to dump with $opt{type}" if ! $self->can( $meth );
@@ -44,10 +43,10 @@ sub _dumper_xml {
     my $opt  = shift;
     require XML::Simple;
     return  XML::Simple::XMLout(
-        $self->_dump_to_struct,
-        RootName => 'ua',
-        NoIndent => $opt->{format} ne 'pretty',
-    );
+                $self->_dump_to_struct,
+                RootName => 'ua',
+                NoIndent => $opt->{format} ne 'pretty',
+            );
 }
 
 sub _dumper_yaml {
@@ -58,6 +57,7 @@ sub _dumper_yaml {
 }
 
 sub _dumper_dumper {
+    # yeah, I know. Fugly code here
     my $self = shift;
     my $opt  = shift;
     my @ids  = $opt->{args} ?  @{ $opt->{args} } : $self->_object_ids;
@@ -103,8 +103,8 @@ Parse::HTTP::UserAgent::Base::Dumper - Base class to dump parsed structure
 
 =head1 DESCRIPTION
 
-This document describes version C<0.13> of C<Parse::HTTP::UserAgent::Base::Dumper>
-released on C<28 August 2009>.
+This document describes version C<0.14> of C<Parse::HTTP::UserAgent::Base::Dumper>
+released on C<29 August 2009>.
 
 The parsed structure can be dumped to a text table for debugging.
 

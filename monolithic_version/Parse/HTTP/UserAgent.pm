@@ -15,7 +15,7 @@ package Parse::HTTP::UserAgent::Constants;
 use strict;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 BEGIN { $OID = -1 }
 use constant UA_STRING           => ++$OID; # just for information
@@ -40,6 +40,7 @@ use constant UA_ORIGINAL_NAME    => ++$OID; # original name if this is some vari
 use constant UA_ORIGINAL_VERSION => ++$OID; # original version if this is some variation
 use constant IS_PARSED           => ++$OID; # _parse() happened or not
 use constant IS_MAXTHON          => ++$OID; # Is this the dumb IE faker?
+use constant IS_EXTENDED         => ++$OID;
 use constant MAXID               =>   $OID;
 
 use constant RE_FIREFOX_NAMES    => qr{Firefox|Iceweasel|Firebird|Phoenix }xms;
@@ -47,6 +48,10 @@ use constant RE_DOTNET           => qr{ \A [.]NET \s+ CLR \s+ (.+?) \z    }xms;
 use constant RE_WINDOWS_OS       => qr{ \A Win(dows|NT|[0-9]+)?           }xmsi;
 use constant RE_SLASH            => qr{ /                                 }xms;
 use constant RE_SPLIT_PARSE      => qr{ \s? [()] \s?                      }xms;
+use constant RE_OPERA_MINI       => qr{ \A (Opera \s+ Mini) / (.+?) \z    }xms;
+use constant RE_TRIDENT          => qr{ \A (Trident) / (.+?) \z           }xmsi;
+use constant RE_EPIPHANY_GECKO   => qr{ \A (Epiphany) / (.+?) \z          }xmsi;
+use constant RE_WHITESPACE       => qr{ \s+ }xms;
 
 use constant LIST_ROBOTS         => qw(
     Wget
@@ -66,6 +71,7 @@ BEGIN {
         object_ids => [qw(
             IS_PARSED
             IS_MAXTHON
+            IS_EXTENDED
             UA_STRING
             UA_UNKNOWN
             UA_GENERIC
@@ -94,6 +100,10 @@ BEGIN {
             RE_WINDOWS_OS
             RE_SLASH
             RE_SPLIT_PARSE
+            RE_OPERA_MINI
+            RE_TRIDENT
+            RE_EPIPHANY_GECKO
+            RE_WHITESPACE
         )],
         list => [qw(
             LIST_ROBOTS
@@ -108,9 +118,10 @@ package Parse::HTTP::UserAgent::Base::Parsers;
 use strict;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
-use Carp qw(croak);
+use constant ERROR_MAXTHON_VERSION => "Unable to extract Maxthon version from Maxthon UA-string";
+use constant ERROR_MAXTHON_MSIE    => "Unable to extract MSIE from Maxthon UA-string";
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 sub _extract_dotnet {
     my $self = shift;
@@ -137,7 +148,7 @@ sub _fix_opera {
     return if ! $self->[UA_EXTRAS];
     my @buf;
     foreach my $e ( @{ $self->[UA_EXTRAS] } ) {
-        if ( $e =~ m{ \A (Opera \s+ Mini) / (.+?) \z }xms ) {
+        if ( $e =~ RE_OPERA_MINI ) {
             $self->[UA_ORIGINAL_NAME]    = $1;
             $self->[UA_ORIGINAL_VERSION] = $2;
             next;
@@ -166,34 +177,41 @@ sub _fix_generic {
 sub _parse_maxthon {
     my($self, $moz, $thing, $extra, @others) = @_;
     my @omap = grep { $_ } map { split m{;\s+?}xms, $_ } @others;
-    my($maxthon, $msie);
-
-    my @buf;
+    my($maxthon, $msie, @buf);
     foreach my $e ( @omap, @{$thing} ) { # $extra -> junk
         if ( index(uc $e, 'MAXTHON') != -1 ) { $maxthon = $e; next; }
         if ( index(uc $e, 'MSIE'   ) != -1 ) { $msie    = $e; next; }
         push @buf, $e;
     }
 
-    # make this a warning after development?
-    croak "Unable to extract Maxthon version from Maxthon UA-string" if ! $maxthon;
-    croak "Unable to extract MSIE from Maxthon UA-string" if ! $msie;
+    if ( ! $maxthon ) {
+        warn ERROR_MAXTHON_VERSION;
+        $self->[UA_UNKNOWN] = 1;
+        return;
+    }
 
-    $self->_parse_msie($moz, [ undef, @buf ], undef, split /\s+/, $msie);
+    if ( ! $msie ) {
+        warn ERROR_MAXTHON_MSIE;
+        $self->[UA_UNKNOWN] = 1;
+        return;
+    }
 
-    my(undef, $mv) = split m{ \s+ }xms, $maxthon;
-    $self->[UA_ORIGINAL_VERSION] = $mv || (
-        $maxthon ? '1.0' : croak "Unable to extract Maxthon version?"
-    );
-    $self->[UA_ORIGINAL_NAME] = 'Maxthon';
+    $self->_parse_msie($moz, [ undef, @buf ], undef, split RE_WHITESPACE, $msie);
+
+    my(undef, $mv) = split RE_WHITESPACE, $maxthon;
+    my $v = $mv      ? $mv
+          : $maxthon ? '1.0'
+          :            do { warn ERROR_MAXTHON_VERSION; 0 }
+          ;
+
+    $self->[UA_ORIGINAL_VERSION] = $v;
+    $self->[UA_ORIGINAL_NAME]    = 'Maxthon';
     return;
 }
 
 sub _parse_msie {
     my($self, $moz, $thing, $extra, $name, $version) = @_;
     my $junk = shift @{ $thing }; # already used
-    # "Microsoft Internet Explorer";
-
     my($extras,$dotnet) = $self->_extract_dotnet( $thing, $extra );
 
     if ( @{$extras} == 2 && index( $extras->[1], 'Lunascape' ) != -1 ) {
@@ -210,7 +228,7 @@ sub _parse_msie {
 
     my @buf;
     foreach my $e ( @{ $extras } ) {
-        if ( $e =~ m{ \A (Trident) / (.+?) \z }xmsi ) {
+        if ( $e =~ RE_TRIDENT ) {
             $self->[UA_TOOLKIT] = [ $1, $2 ];
             next;
         }
@@ -230,10 +248,10 @@ sub _parse_firefox {
 sub _parse_safari {
     my $self = shift;
     my($moz, $thing, $extra, @others) = @_;
-    $self->[UA_NAME]        = 'Safari';
-    my($version, @junk)     = split m{\s+}xms, pop @others;
+    my($version, @junk)     = split RE_WHITESPACE, pop @others;
+    my $ep = $version && index( lc($version), 'epiphany' ) != -1;
     (undef, $version)       = split RE_SLASH, $version;
-    $self->[UA_NAME]        = 'Safari';
+    $self->[UA_NAME]        = $ep ? 'Epiphany' : 'Safari';
     $self->[UA_VERSION_RAW] = $version;
     $self->[UA_TOOLKIT]     = [ split RE_SLASH, $extra->[0] ];
     $self->[UA_LANG]        = pop @{ $thing };
@@ -354,6 +372,10 @@ sub _parse_gecko {
                 $self->[UA_LANG] = $e;
                 next;
             }
+            if ( $e =~ RE_EPIPHANY_GECKO ) {
+                $self->[UA_NAME]        = $before = $1;
+                $self->[UA_VERSION_RAW] = $2;
+            }
             push @buf, $e;
         }
 
@@ -376,8 +398,8 @@ sub _parse_gecko {
 sub _parse_netscape {
     my $self            = shift;
     my($moz, $thing)    = @_;
-    my($mozx, $junk)    = split m{ \s+ }xms, $moz;
-    my(undef, $version) = split RE_SLASH, $mozx;
+    my($mozx, $junk)    = split RE_WHITESPACE, $moz;
+    my(undef, $version) = split RE_SLASH     , $mozx;
     my @buf;
     foreach my $e ( @{ $thing } ) {
         if ( my $s = $self->_is_strength($e) ) {
@@ -495,11 +517,11 @@ use strict;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
-    return index( $moz, "Opera") != -1;
+    return index( $moz, 'Opera') != -1;
 }
 
 sub _is_opera_post {
@@ -514,31 +536,34 @@ sub _is_opera_ff { # opera faking as firefox
 
 sub _is_safari {
     my($self, $extra, $others) = @_;
-    return index($self->[UA_STRING],'Chrome') == -1 && (
-                    ( $extra  && index( $extra->[0], "AppleWebKit")  != -1 ) ||
-                    ( @{$others} && index( $others->[-1], "Safari" ) != -1 )
-                   );
+    my $str = $self->[UA_STRING];
+    # epiphany?
+    return                index( $str         , 'Chrome'     ) != -1 ? 0 # faker
+          :    $extra  && index( $extra->[0]  , 'AppleWebKit') != -1 ? 1
+          : @{$others} && index( $others->[-1], 'Safari'     ) != -1 ? 1
+          :                                                            0
+          ;
 }
 
 sub _is_chrome {
     my($self, $extra, $others) = @_;
     my $chx = $others->[1] || return;
-    my($chrome, $safari) = split m{\s}xms, $chx;
+    my($chrome, $safari) = split RE_WHITESPACE, $chx;
     return if ! ( $chrome && $safari);
 
-    return index($chrome,'Chrome') != -1 &&
-           index($safari,'Safari') != -1 &&
-           ( $extra  && index( $extra->[0], "AppleWebKit") != -1);
+    return              index( $chrome    , 'Chrome'     ) != -1 &&
+                        index( $safari    , 'Safari'     ) != -1 &&
+           ( $extra  && index( $extra->[0], 'AppleWebKit') != -1);
 }
 
 sub _is_ff {
     my($self, $extra) = @_;
-    return $extra && $extra->[1] && (
-                    ($extra->[1] eq 'Mozilla' && $extra->[2])
-                        ? $extra->[2] =~ RE_FIREFOX_NAMES
-                                && do { $extra->[1] = $extra->[2] }
-                        : $extra->[1] =~ RE_FIREFOX_NAMES
-                 );
+    return if ! $extra || ! $extra->[1];
+    my $moz_with_name = $extra->[1] eq 'Mozilla' && $extra->[2];
+    return $moz_with_name
+        ? $extra->[2] =~ RE_FIREFOX_NAMES && do { $extra->[1] = $extra->[2] }
+        : $extra->[1] =~ RE_FIREFOX_NAMES
+    ;
 }
 
 sub _is_gecko {
@@ -580,16 +605,15 @@ use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use Carp qw( croak );
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 sub dumper {
     my $self = shift;
-    my %opt  = @_ % 2 ? () : (@_);
-    %opt = (
+    my %opt  = @_ % 2 ? () : (
         type      => 'dumper',
         format    => 'none',
         interpret => 0,
-        %opt
+        @_
     );
     my $meth = '_dumper_' . lc($opt{type});
     croak "Don't know how to dump with $opt{type}" if ! $self->can( $meth );
@@ -620,10 +644,10 @@ sub _dumper_xml {
     my $opt  = shift;
     require XML::Simple;
     return  XML::Simple::XMLout(
-        $self->_dump_to_struct,
-        RootName => 'ua',
-        NoIndent => $opt->{format} ne 'pretty',
-    );
+                $self->_dump_to_struct,
+                RootName => 'ua',
+                NoIndent => $opt->{format} ne 'pretty',
+            );
 }
 
 sub _dumper_yaml {
@@ -634,6 +658,7 @@ sub _dumper_yaml {
 }
 
 sub _dumper_dumper {
+    # yeah, I know. Fugly code here
     my $self = shift;
     my $opt  = shift;
     my @ids  = $opt->{args} ?  @{ $opt->{args} } : $self->_object_ids;
@@ -672,7 +697,7 @@ use strict;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 #TODO: new accessors
 #wap
@@ -725,7 +750,7 @@ package Parse::HTTP::UserAgent;
 use strict;
 use vars qw( $VERSION );
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -748,8 +773,10 @@ BEGIN {
 my %OSFIX = (
     'WinNT4.0'       => 'Windows NT 4.0',
     'WinNT'          => 'Windows NT',
+    'Windows 4.0'    => 'Windows 95',
     'Win95'          => 'Windows 95',
     'Win98'          => 'Windows 98',
+    'Windows 4.10'   => 'Windows 98',
     'Win 9x 4.90'    => 'Windows Me',
     'Windows NT 5.0' => 'Windows 2000',
     'Windows NT 5.1' => 'Windows XP',
@@ -761,9 +788,12 @@ my %OSFIX = (
 sub new {
     my $class = shift;
     my $ua    = shift || croak "No user agent string specified";
+    my $opt   = shift || {};
+    croak "Options must be a hash reference" if ref $opt ne 'HASH';
     my $self  = [ map { undef } 0..MAXID ];
     bless $self, $class;
-    $self->[UA_STRING] = $ua;
+    $self->[UA_STRING]   = $ua;
+    $self->[IS_EXTENDED] = exists $opt->{extended} ? $opt->{extended} : 1;
     $self->_parse;
     return $self;
 }
@@ -803,7 +833,7 @@ sub _pre_parse {
     my $ua = $self->[UA_STRING];
     my($moz, $thing, $extra, @others) = split RE_SPLIT_PARSE, $ua;
     $thing = $thing ? [ split m{;\s?}xms, $thing ] : [];
-    $extra = [ split m{ \s+}xms, $extra ] if $extra;
+    $extra = [ split RE_WHITESPACE, $extra ] if $extra;
     $self->_debug_pre_parse( $moz, $thing, $extra, @others ) if DEBUG;
     return $moz, $thing, $extra, @others;
 }
@@ -814,7 +844,7 @@ sub _do_parse {
     my $c = $t->[0] && $t->[0] eq 'compatible';
 
     if ( $c && shift @{$t} && ! $e && ! $self->[IS_MAXTHON] ) {
-        my($n, $v) = split /\s+/, $t->[0];
+        my($n, $v) = split RE_WHITESPACE, $t->[0];
         if ( $n eq 'MSIE' && index($m, ' ') == -1 ) {
             $self->[UA_PARSER] = 'msie';
             return $self->_parse_msie($m, $t, $e, $n, $v);
@@ -837,8 +867,7 @@ sub _do_parse {
         return $self->$method( @{ $rv } );
     }
 
-    return $self->_extended_probe($m, $t, $e, $c, @o)
-                if $self->can('_extended_probe');
+    return $self->_extended_probe($m, $t, $e, $c, @o) if $self->[IS_EXTENDED];
 
     $self->[UA_UNKNOWN] = 1; # give up
     return;
@@ -964,8 +993,8 @@ generated with an automatic build tool. If you experience problems
 with this version, please install and use the supported standard
 version. This version is B<NOT SUPPORTED>.
 
-This document describes version C<0.13> of C<Parse::HTTP::UserAgent>
-released on C<28 August 2009>.
+This document describes version C<0.14> of C<Parse::HTTP::UserAgent>
+released on C<29 August 2009>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
@@ -995,10 +1024,26 @@ also a structure dumper, useful for debugging.
 
 =head1 METHODS
 
-=head2 new STRING
+=head2 new STRING [, OPTIONS ]
 
 Constructor. Takes the user agent string as the only parameter and returns
 an object based on the parsed structure.
+
+The optional C<OPTIONS> parameter (must be a hashref) can be used to pass
+several parameters:
+
+=over 4
+
+=item *
+
+C<extended>: controls if the extended probe qill be used or not. Default
+is true. Set this to false to disable:
+
+   $ua = Parse::HTTP::UserAgent->new( $str, { extended => 0 } );
+
+Can be used to speed up the parser by disabling detection of non-major browsers.
+
+=back
 
 =head2 trim STRING
 
@@ -1016,6 +1061,35 @@ See L<Parse::HTTP::UserAgent::Base::Dumper>.
 
 See L<Parse::HTTP::UserAgent::Base::Accessors> for the available accessors you can
 use on the parsed object.
+
+=head1 OVERLOADED INTERFACE
+
+The object returned, overloads stringification (C<name>) and numification
+(C<version>) operators. So that you can write this:
+
+    print 42 if $ua eq 'Opera' && $ua >= 9;
+
+instead of this
+
+    print 42 if $ua->name eq 'Opera' && $ua->version >= 9;
+
+=head1 ERROR HANDLING
+
+=over 4
+
+=item *
+
+If you pass a false value to the constructor, it'll croak.
+
+=item *
+
+If you pass a non-hashref option to the constructor, it'll croak.
+
+=item *
+
+If you pass a wrong parameter to the dumper, it'll croak.
+
+=back
 
 =head1 SEE ALSO
 

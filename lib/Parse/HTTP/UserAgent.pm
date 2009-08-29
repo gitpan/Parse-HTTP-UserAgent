@@ -2,7 +2,7 @@ package Parse::HTTP::UserAgent;
 use strict;
 use vars qw( $VERSION );
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -25,8 +25,10 @@ BEGIN {
 my %OSFIX = (
     'WinNT4.0'       => 'Windows NT 4.0',
     'WinNT'          => 'Windows NT',
+    'Windows 4.0'    => 'Windows 95',
     'Win95'          => 'Windows 95',
     'Win98'          => 'Windows 98',
+    'Windows 4.10'   => 'Windows 98',
     'Win 9x 4.90'    => 'Windows Me',
     'Windows NT 5.0' => 'Windows 2000',
     'Windows NT 5.1' => 'Windows XP',
@@ -38,9 +40,12 @@ my %OSFIX = (
 sub new {
     my $class = shift;
     my $ua    = shift || croak "No user agent string specified";
+    my $opt   = shift || {};
+    croak "Options must be a hash reference" if ref $opt ne 'HASH';
     my $self  = [ map { undef } 0..MAXID ];
     bless $self, $class;
-    $self->[UA_STRING] = $ua;
+    $self->[UA_STRING]   = $ua;
+    $self->[IS_EXTENDED] = exists $opt->{extended} ? $opt->{extended} : 1;
     $self->_parse;
     return $self;
 }
@@ -80,7 +85,7 @@ sub _pre_parse {
     my $ua = $self->[UA_STRING];
     my($moz, $thing, $extra, @others) = split RE_SPLIT_PARSE, $ua;
     $thing = $thing ? [ split m{;\s?}xms, $thing ] : [];
-    $extra = [ split m{ \s+}xms, $extra ] if $extra;
+    $extra = [ split RE_WHITESPACE, $extra ] if $extra;
     $self->_debug_pre_parse( $moz, $thing, $extra, @others ) if DEBUG;
     return $moz, $thing, $extra, @others;
 }
@@ -91,7 +96,7 @@ sub _do_parse {
     my $c = $t->[0] && $t->[0] eq 'compatible';
 
     if ( $c && shift @{$t} && ! $e && ! $self->[IS_MAXTHON] ) {
-        my($n, $v) = split /\s+/, $t->[0];
+        my($n, $v) = split RE_WHITESPACE, $t->[0];
         if ( $n eq 'MSIE' && index($m, ' ') == -1 ) {
             $self->[UA_PARSER] = 'msie';
             return $self->_parse_msie($m, $t, $e, $n, $v);
@@ -114,8 +119,7 @@ sub _do_parse {
         return $self->$method( @{ $rv } );
     }
 
-    return $self->_extended_probe($m, $t, $e, $c, @o)
-                if $self->can('_extended_probe');
+    return $self->_extended_probe($m, $t, $e, $c, @o) if $self->[IS_EXTENDED];
 
     $self->[UA_UNKNOWN] = 1; # give up
     return;
@@ -236,8 +240,8 @@ Parse::HTTP::UserAgent - Parser for the User Agent string
 
 =head1 DESCRIPTION
 
-This document describes version C<0.13> of C<Parse::HTTP::UserAgent>
-released on C<28 August 2009>.
+This document describes version C<0.14> of C<Parse::HTTP::UserAgent>
+released on C<29 August 2009>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
@@ -267,10 +271,26 @@ also a structure dumper, useful for debugging.
 
 =head1 METHODS
 
-=head2 new STRING
+=head2 new STRING [, OPTIONS ]
 
 Constructor. Takes the user agent string as the only parameter and returns
 an object based on the parsed structure.
+
+The optional C<OPTIONS> parameter (must be a hashref) can be used to pass
+several parameters:
+
+=over 4
+
+=item *
+
+C<extended>: controls if the extended probe qill be used or not. Default
+is true. Set this to false to disable:
+
+   $ua = Parse::HTTP::UserAgent->new( $str, { extended => 0 } );
+
+Can be used to speed up the parser by disabling detection of non-major browsers.
+
+=back
 
 =head2 trim STRING
 
@@ -288,6 +308,35 @@ See L<Parse::HTTP::UserAgent::Base::Dumper>.
 
 See L<Parse::HTTP::UserAgent::Base::Accessors> for the available accessors you can
 use on the parsed object.
+
+=head1 OVERLOADED INTERFACE
+
+The object returned, overloads stringification (C<name>) and numification
+(C<version>) operators. So that you can write this:
+
+    print 42 if $ua eq 'Opera' && $ua >= 9;
+
+instead of this
+
+    print 42 if $ua->name eq 'Opera' && $ua->version >= 9;
+
+=head1 ERROR HANDLING
+
+=over 4
+
+=item *
+
+If you pass a false value to the constructor, it'll croak.
+
+=item *
+
+If you pass a non-hashref option to the constructor, it'll croak.
+
+=item *
+
+If you pass a wrong parameter to the dumper, it'll croak.
+
+=back
 
 =head1 SEE ALSO
 

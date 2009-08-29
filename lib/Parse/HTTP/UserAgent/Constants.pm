@@ -2,7 +2,7 @@ package Parse::HTTP::UserAgent::Constants;
 use strict;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 BEGIN { $OID = -1 }
 use constant UA_STRING           => ++$OID; # just for information
@@ -27,6 +27,7 @@ use constant UA_ORIGINAL_NAME    => ++$OID; # original name if this is some vari
 use constant UA_ORIGINAL_VERSION => ++$OID; # original version if this is some variation
 use constant IS_PARSED           => ++$OID; # _parse() happened or not
 use constant IS_MAXTHON          => ++$OID; # Is this the dumb IE faker?
+use constant IS_EXTENDED         => ++$OID;
 use constant MAXID               =>   $OID;
 
 use constant RE_FIREFOX_NAMES    => qr{Firefox|Iceweasel|Firebird|Phoenix }xms;
@@ -34,6 +35,10 @@ use constant RE_DOTNET           => qr{ \A [.]NET \s+ CLR \s+ (.+?) \z    }xms;
 use constant RE_WINDOWS_OS       => qr{ \A Win(dows|NT|[0-9]+)?           }xmsi;
 use constant RE_SLASH            => qr{ /                                 }xms;
 use constant RE_SPLIT_PARSE      => qr{ \s? [()] \s?                      }xms;
+use constant RE_OPERA_MINI       => qr{ \A (Opera \s+ Mini) / (.+?) \z    }xms;
+use constant RE_TRIDENT          => qr{ \A (Trident) / (.+?) \z           }xmsi;
+use constant RE_EPIPHANY_GECKO   => qr{ \A (Epiphany) / (.+?) \z          }xmsi;
+use constant RE_WHITESPACE       => qr{ \s+ }xms;
 
 use constant LIST_ROBOTS         => qw(
     Wget
@@ -53,6 +58,7 @@ BEGIN {
         object_ids => [qw(
             IS_PARSED
             IS_MAXTHON
+            IS_EXTENDED
             UA_STRING
             UA_UNKNOWN
             UA_GENERIC
@@ -81,6 +87,10 @@ BEGIN {
             RE_WINDOWS_OS
             RE_SLASH
             RE_SPLIT_PARSE
+            RE_OPERA_MINI
+            RE_TRIDENT
+            RE_EPIPHANY_GECKO
+            RE_WHITESPACE
         )],
         list => [qw(
             LIST_ROBOTS
@@ -103,8 +113,8 @@ Parse::HTTP::UserAgent::Constants - Various constants
 
 =head1 DESCRIPTION
 
-This document describes version C<0.13> of C<Parse::HTTP::UserAgent::Constants>
-released on C<28 August 2009>.
+This document describes version C<0.14> of C<Parse::HTTP::UserAgent::Constants>
+released on C<29 August 2009>.
 
 Internal module
 
