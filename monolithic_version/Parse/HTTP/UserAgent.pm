@@ -15,7 +15,7 @@ package Parse::HTTP::UserAgent::Constants;
 use strict;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 BEGIN { $OID = -1 }
 use constant UA_STRING           => ++$OID; # just for information
@@ -52,6 +52,16 @@ use constant RE_OPERA_MINI       => qr{ \A (Opera \s+ Mini) / (.+?) \z    }xms;
 use constant RE_TRIDENT          => qr{ \A (Trident) / (.+?) \z           }xmsi;
 use constant RE_EPIPHANY_GECKO   => qr{ \A (Epiphany) / (.+?) \z          }xmsi;
 use constant RE_WHITESPACE       => qr{ \s+ }xms;
+use constant RE_SC_WS            => qr{;\s?}xms;
+use constant RE_SC_WS_MULTI      => qr{;\s+?}xms;
+use constant RE_HTTP             => qr{ http:// }xms;
+use constant RE_DIGIT            => qr{[0-9]}xms;
+use constant RE_IX86             => qr{ \s i\d86 }xms;
+use constant RE_OBJECT_ID        => qr{ \A UA_ }xms;
+use constant RE_CHAR_SLASH_WS    => qr{[/\s]}xms;
+use constant RE_COMMA            => qr{ [,] }xms;
+use constant RE_TWO_LETTER_LANG  => qr{ \A [a-z]{2} \z }xms;
+use constant RE_DIGIT_DOT_DIGIT  => qr{\d+[.]?\d};
 
 use constant LIST_ROBOTS         => qw(
     Wget
@@ -104,6 +114,16 @@ BEGIN {
             RE_TRIDENT
             RE_EPIPHANY_GECKO
             RE_WHITESPACE
+            RE_SC_WS
+            RE_SC_WS_MULTI
+            RE_HTTP
+            RE_DIGIT
+            RE_IX86
+            RE_OBJECT_ID
+            RE_CHAR_SLASH_WS
+            RE_COMMA
+            RE_TWO_LETTER_LANG
+            RE_DIGIT_DOT_DIGIT
         )],
         list => [qw(
             LIST_ROBOTS
@@ -121,7 +141,7 @@ use Parse::HTTP::UserAgent::Constants qw(:all);
 use constant ERROR_MAXTHON_VERSION => "Unable to extract Maxthon version from Maxthon UA-string";
 use constant ERROR_MAXTHON_MSIE    => "Unable to extract MSIE from Maxthon UA-string";
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 sub _extract_dotnet {
     my $self = shift;
@@ -161,12 +181,12 @@ sub _fix_opera {
 
 sub _fix_generic {
     my($self, $os_ref, $name_ref, $v_ref, $e_ref) = @_;
-    if ( $$v_ref && $$v_ref !~ m{[0-9]}xms) {
+    if ( $$v_ref && $$v_ref !~ RE_DIGIT) {
         $$name_ref .= ' ' . $$v_ref;
         $$v_ref = undef;
     }
 
-    if ( $$os_ref && $$os_ref =~ m{ http:// }xms ) {
+    if ( $$os_ref && $$os_ref =~ RE_HTTP ) {
         $$os_ref =~ s{ \A \+ }{}xms;
         push @{ $e_ref }, $$os_ref;
         $$os_ref = undef;
@@ -176,7 +196,7 @@ sub _fix_generic {
 
 sub _parse_maxthon {
     my($self, $moz, $thing, $extra, @others) = @_;
-    my @omap = grep { $_ } map { split m{;\s+?}xms, $_ } @others;
+    my @omap = grep { $_ } map { split RE_SC_WS_MULTI, $_ } @others;
     my($maxthon, $msie, @buf);
     foreach my $e ( @omap, @{$thing} ) { # $extra -> junk
         if ( index(uc $e, 'MAXTHON') != -1 ) { $maxthon = $e; next; }
@@ -215,7 +235,7 @@ sub _parse_msie {
     my($extras,$dotnet) = $self->_extract_dotnet( $thing, $extra );
 
     if ( @{$extras} == 2 && index( $extras->[1], 'Lunascape' ) != -1 ) {
-        ($name, $version) = split m{[/\s]}xms, pop @{ $extras };
+        ($name, $version) = split RE_CHAR_SLASH_WS, pop @{ $extras };
     }
 
     $self->[UA_NAME]        = $name;
@@ -275,7 +295,7 @@ sub _parse_chrome {
     my $self = shift;
     my($moz, $thing, $extra, @others) = @_;
     my $chx = pop @others;
-    my($chrome, $safari)     = split m{\s}xms, $chx;
+    my($chrome, $safari)     = split RE_WHITESPACE, $chx;
     push @others, $safari;
     $self->_parse_safari($moz, $thing, $extra, @others);
     my($name, $version)      = split RE_SLASH, $chrome;
@@ -291,10 +311,22 @@ sub _parse_opera_pre {
     my $faking_ff           = index($thing->[-1], "rv:") != -1 ? pop @{$thing} : 0;
     $self->[UA_NAME]        = $name;
     $self->[UA_VERSION_RAW] = $version;
-   (my $lang                = pop @{$extra}) =~ tr/[]//d if $extra;
-    $lang                 ||= pop @{$thing} if $faking_ff;
+    my $ver = $self->_numify( $version );
+    my $lang;
 
-    if ( $self->_numify( $version ) >= 9 && $lang && length( $lang ) > 5 ) {
+    if ( $extra ) {
+        # http://dev.opera.com/articles/view/opera-ua-string-changes/
+        my $swap = index($extra->[-1], 'Version/') != -1; # damned 10.0 beta
+        ($lang = $swap ? shift @{$extra} : pop @{$extra}) =~ tr/[]//d;
+        if ( $swap ) {
+            my $vjunk = pop @{$extra};
+            $self->[UA_VERSION_RAW] = ( split RE_SLASH, $vjunk )[1] if $vjunk;
+        }
+    }
+
+    $lang ||= pop @{$thing} if $faking_ff;
+
+    if ( ! $self->[UA_TOOLKIT] && $ver >= 9 && $lang && length( $lang ) > 5 ) {
         $self->[UA_TOOLKIT] = [ split RE_SLASH, $lang ];
        ($lang = pop @{$thing}) =~ tr/[]//d if $extra;
     }
@@ -362,13 +394,13 @@ sub _parse_gecko {
                 $self->[UA_STRENGTH] = $s;
                 next;
             }
-            if ( $e =~ m{ \s i\d86 }xms ) {
-                my($os,$lang) = split m{[,]}xms, $e;
+            if ( $e =~ RE_IX86 ) {
+                my($os,$lang) = split RE_COMMA, $e;
                 $self->[UA_OS]   = $os   if $os;
                 $self->[UA_LANG] = $self->trim($lang) if $lang;
                 next;
             }
-            if ( $e =~ m{ \A [a-z]{2} \z }xms ) {
+            if ( $e =~ RE_TWO_LETTER_LANG ) {
                 $self->[UA_LANG] = $e;
                 next;
             }
@@ -420,20 +452,19 @@ sub _parse_netscape {
     return 1;
 }
 
-
 sub _generic_moz_thing {
     my $self = shift;
-    my($moz, $thing, $extra, $compatible, @others) = @_;
-    return if ! @{ $thing };
-    my($mname, $mversion, @remainder) = split m{[/\s]}xms, $moz;
+    my($moz, $t, $extra, $compatible, @others) = @_;
+    return if ! @{ $t };
+    my($mname, $mversion, @rest) = split RE_CHAR_SLASH_WS, $moz;
     return if $mname eq 'Mozilla';
 
     $self->[UA_NAME]        = $mname;
-    $self->[UA_VERSION_RAW] = $mversion || ( $mname eq 'Links' ? shift @{$thing} : 0 );
-    $self->[UA_OS]          = @remainder ? join(' ', @remainder)
-                            : $thing->[0] && $thing->[0] !~ m{\d+[.]?\d} ? shift @{$thing}
-                            :              undef;
-    my @extras = (@{$thing}, $extra ? @{$extra} : (), @others );
+    $self->[UA_VERSION_RAW] = $mversion || ( $mname eq 'Links' ? shift @{$t} : 0 );
+    $self->[UA_OS] = @rest                                     ? join(' ', @rest)
+                   : $t->[0] && $t->[0] !~ RE_DIGIT_DOT_DIGIT  ? shift @{$t}
+                   :                                             undef;
+    my @extras = (@{$t}, $extra ? @{$extra} : (), @others );
 
 
     $self->_fix_generic(
@@ -453,7 +484,7 @@ sub _generic_name_version {
     my $ok = $moz && ! @{$thing} && ! $extra && ! $compatible && ! @others;
     return if not $ok;
 
-    my @moz = split m{\s}xms, $moz;
+    my @moz = split RE_WHITESPACE, $moz;
     if ( @moz == 1 ) {
         my($name, $version) = split RE_SLASH, $moz;
         if ($name && $version) {
@@ -473,9 +504,9 @@ sub _generic_compatible {
 
     return if ! ( $compatible && @{$thing} );
 
-    my($mname, $mversion) = split m{[/\s]}xms, $moz;
+    my($mname, $mversion) = split RE_CHAR_SLASH_WS, $moz;
     my($name, $version)   = $mname eq 'Mozilla'
-                          ? split( m{[/\s]}xms, shift @{ $thing } )
+                          ? split( RE_CHAR_SLASH_WS, shift @{ $thing } )
                           : ($mname, $mversion)
                           ;
     my $junk   = shift @{$thing}
@@ -487,9 +518,9 @@ sub _generic_compatible {
 
     if ( $name eq 'MSIE') {
         if ( $extra ) { # Sleipnir?
-            ($name, $version) = split RE_SLASH, pop @{$extra};
+            ($name, $version)   = split RE_SLASH, pop @{$extra};
             my($extras,$dotnet) = $self->_extract_dotnet( $thing, $extra );
-            $self->[UA_DOTNET] = [ @{$dotnet} ] if @{$dotnet};
+            $self->[UA_DOTNET]  = [ @{$dotnet} ] if @{$dotnet};
             @extras = (@{ $extras }, @others);
         }
         else {
@@ -512,12 +543,30 @@ sub _generic_compatible {
     return 1;
 }
 
+sub _parse_docomo {
+    my $self = shift;
+    my($moz, $thing, $extra, $compatible, @others) = @_;
+    if ( $thing->[0] && index(lc $thing->[0], 'googlebot-mobile') != -1 ) {
+        my($name, $version) = split RE_SLASH, shift @{ $thing };
+        $self->[UA_NAME]        = $name;
+        $self->[UA_VERSION_RAW] = $version;
+        $self->[UA_EXTRAS]      = [ @{ $thing } ];
+        $self->[UA_MOBILE]      = 1;
+        $self->[UA_ROBOT]       = 1;
+        $self->[UA_PARSER]      = 'docomo';
+        return 1;
+    }
+    #$self->[UA_PARSER] = 'docomo';
+    #require Data::Dumper;warn "DoCoMo unsupported: ".Data::Dumper::Dumper( [ $moz, $thing, $extra, $compatible, \@others ] );
+    return;
+}
+
 package Parse::HTTP::UserAgent::Base::IS;
 use strict;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
@@ -592,6 +641,11 @@ sub _is_netscape {
     return $rv;
 }
 
+sub _is_docomo {
+    my($self, $moz) = @_;
+    return index(lc $moz, 'docomo') != -1;
+}
+
 sub _is_strength {
     my $self = shift;
     my $s    = shift || return;
@@ -605,7 +659,7 @@ use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use Carp qw( croak );
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 sub dumper {
     my $self = shift;
@@ -697,7 +751,7 @@ use strict;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 #TODO: new accessors
 #wap
@@ -750,7 +804,7 @@ package Parse::HTTP::UserAgent;
 use strict;
 use vars qw( $VERSION );
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -762,6 +816,8 @@ use overload '""',    => 'name',
              '0+',    => 'version',
              fallback => 1,
 ;
+use constant RE_WARN_OVERFLOW => qr{Integer overflow in version};
+use constant RE_WARN_INVALID  => qr{Version string .+? contains invalid data; ignoring:};
 use version;
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use Carp qw( croak );
@@ -832,7 +888,7 @@ sub _pre_parse {
     $self->[IS_MAXTHON] = index(uc $self->[UA_STRING], 'MAXTHON') != -1;
     my $ua = $self->[UA_STRING];
     my($moz, $thing, $extra, @others) = split RE_SPLIT_PARSE, $ua;
-    $thing = $thing ? [ split m{;\s?}xms, $thing ] : [];
+    $thing = $thing ? [ split RE_SC_WS, $thing ] : [];
     $extra = [ split RE_WHITESPACE, $extra ] if $extra;
     $self->_debug_pre_parse( $moz, $thing, $extra, @others ) if DEBUG;
     return $moz, $thing, $extra, @others;
@@ -913,18 +969,18 @@ sub _post_parse {
 
 sub _extended_probe {
     my $self = shift;
-    my($moz, $thing, $extra, $compatible, @others) = @_;
 
-    return if $self->_is_gecko        && $self->_parse_gecko( @_ );
-    return if $self->_is_netscape(@_) && $self->_parse_netscape( @_ );
-    return if $self->_is_generic(@_);
+    return if $self->_is_gecko          && $self->_parse_gecko(    @_ );
+    return if $self->_is_netscape( @_ ) && $self->_parse_netscape( @_ );
+    return if $self->_is_docomo(   @_ ) && $self->_parse_docomo(   @_ );
+    return if $self->_is_generic(  @_ );
 
     $self->[UA_UNKNOWN] = 1;
     return;
 }
 
 sub _object_ids {
-    return grep { m{ \A UA_ }xms } keys %Parse::HTTP::UserAgent::;
+    return grep { $_ =~ RE_OBJECT_ID } keys %Parse::HTTP::UserAgent::;
 }
 
 sub _numify {
@@ -940,11 +996,11 @@ sub _numify {
     # Gecko revisions like: "20080915000512" will cause an
     #   integer overflow warning. use bigint?
     local $SIG{__WARN__} = sub {
-        my $w = shift;
-        my $ok = $w !~ m{Integer overflow in version} &&
-                 $w !~ m{Version string .+? contains invalid data; ignoring:};
-        warn $w if $ok;
+        warn $_[0] if $_[0] !~ RE_WARN_OVERFLOW && $_[0] !~ RE_WARN_INVALID;
     };
+    # if version::vpp is used it'll identify 420 as a v-string
+    # add a floating point to fool it
+    $v .= '.0' if index($v, '.') == -1;
     my $rv = version->new("$v")->numify;
     return $rv;
 }
@@ -993,8 +1049,8 @@ generated with an automatic build tool. If you experience problems
 with this version, please install and use the supported standard
 version. This version is B<NOT SUPPORTED>.
 
-This document describes version C<0.14> of C<Parse::HTTP::UserAgent>
-released on C<29 August 2009>.
+This document describes version C<0.15> of C<Parse::HTTP::UserAgent>
+released on C<2 September 2009>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
@@ -1095,14 +1151,47 @@ If you pass a wrong parameter to the dumper, it'll croak.
 
 =head2 Similar Functionality
 
-L<HTTP::BrowserDetect>, L<HTML::ParseBrowser>, L<HTTP::DetectUserAgent>.
+=over 4
+
+=item *
+
+L<HTTP::BrowserDetect>
+
+=item *
+
+L<HTML::ParseBrowser>
+
+=item *
+
+L<HTTP::DetectUserAgent>
+
+=item *
+
+L<HTTP::MobileAgent>
+
+=back
 
 =head2 Resources
 
+=over 4
+
+=item *
+
 L<http://en.wikipedia.org/wiki/User_agent>,
+
+=item *
+
 L<http://www.zytrax.com/tech/web/browser_ids.htm>,
+
+=item *
+
 L<http://www.zytrax.com/tech/web/mobile_ids.html>,
+
+=item *
+
 L<http://www.webaim.org/blog/user-agent-string-history/>.
+
+=back
 
 =head1 AUTHOR
 

@@ -2,7 +2,7 @@ package Parse::HTTP::UserAgent::Constants;
 use strict;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 BEGIN { $OID = -1 }
 use constant UA_STRING           => ++$OID; # just for information
@@ -39,6 +39,16 @@ use constant RE_OPERA_MINI       => qr{ \A (Opera \s+ Mini) / (.+?) \z    }xms;
 use constant RE_TRIDENT          => qr{ \A (Trident) / (.+?) \z           }xmsi;
 use constant RE_EPIPHANY_GECKO   => qr{ \A (Epiphany) / (.+?) \z          }xmsi;
 use constant RE_WHITESPACE       => qr{ \s+ }xms;
+use constant RE_SC_WS            => qr{;\s?}xms;
+use constant RE_SC_WS_MULTI      => qr{;\s+?}xms;
+use constant RE_HTTP             => qr{ http:// }xms;
+use constant RE_DIGIT            => qr{[0-9]}xms;
+use constant RE_IX86             => qr{ \s i\d86 }xms;
+use constant RE_OBJECT_ID        => qr{ \A UA_ }xms;
+use constant RE_CHAR_SLASH_WS    => qr{[/\s]}xms;
+use constant RE_COMMA            => qr{ [,] }xms;
+use constant RE_TWO_LETTER_LANG  => qr{ \A [a-z]{2} \z }xms;
+use constant RE_DIGIT_DOT_DIGIT  => qr{\d+[.]?\d};
 
 use constant LIST_ROBOTS         => qw(
     Wget
@@ -91,6 +101,16 @@ BEGIN {
             RE_TRIDENT
             RE_EPIPHANY_GECKO
             RE_WHITESPACE
+            RE_SC_WS
+            RE_SC_WS_MULTI
+            RE_HTTP
+            RE_DIGIT
+            RE_IX86
+            RE_OBJECT_ID
+            RE_CHAR_SLASH_WS
+            RE_COMMA
+            RE_TWO_LETTER_LANG
+            RE_DIGIT_DOT_DIGIT
         )],
         list => [qw(
             LIST_ROBOTS
@@ -113,8 +133,8 @@ Parse::HTTP::UserAgent::Constants - Various constants
 
 =head1 DESCRIPTION
 
-This document describes version C<0.14> of C<Parse::HTTP::UserAgent::Constants>
-released on C<29 August 2009>.
+This document describes version C<0.15> of C<Parse::HTTP::UserAgent::Constants>
+released on C<2 September 2009>.
 
 Internal module
 

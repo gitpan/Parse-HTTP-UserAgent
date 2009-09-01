@@ -2,7 +2,7 @@ package Parse::HTTP::UserAgent;
 use strict;
 use vars qw( $VERSION );
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -14,6 +14,8 @@ use overload '""',    => 'name',
              '0+',    => 'version',
              fallback => 1,
 ;
+use constant RE_WARN_OVERFLOW => qr{Integer overflow in version};
+use constant RE_WARN_INVALID  => qr{Version string .+? contains invalid data; ignoring:};
 use version;
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use Carp qw( croak );
@@ -84,7 +86,7 @@ sub _pre_parse {
     $self->[IS_MAXTHON] = index(uc $self->[UA_STRING], 'MAXTHON') != -1;
     my $ua = $self->[UA_STRING];
     my($moz, $thing, $extra, @others) = split RE_SPLIT_PARSE, $ua;
-    $thing = $thing ? [ split m{;\s?}xms, $thing ] : [];
+    $thing = $thing ? [ split RE_SC_WS, $thing ] : [];
     $extra = [ split RE_WHITESPACE, $extra ] if $extra;
     $self->_debug_pre_parse( $moz, $thing, $extra, @others ) if DEBUG;
     return $moz, $thing, $extra, @others;
@@ -165,18 +167,18 @@ sub _post_parse {
 
 sub _extended_probe {
     my $self = shift;
-    my($moz, $thing, $extra, $compatible, @others) = @_;
 
-    return if $self->_is_gecko        && $self->_parse_gecko( @_ );
-    return if $self->_is_netscape(@_) && $self->_parse_netscape( @_ );
-    return if $self->_is_generic(@_);
+    return if $self->_is_gecko          && $self->_parse_gecko(    @_ );
+    return if $self->_is_netscape( @_ ) && $self->_parse_netscape( @_ );
+    return if $self->_is_docomo(   @_ ) && $self->_parse_docomo(   @_ );
+    return if $self->_is_generic(  @_ );
 
     $self->[UA_UNKNOWN] = 1;
     return;
 }
 
 sub _object_ids {
-    return grep { m{ \A UA_ }xms } keys %Parse::HTTP::UserAgent::;
+    return grep { $_ =~ RE_OBJECT_ID } keys %Parse::HTTP::UserAgent::;
 }
 
 sub _numify {
@@ -192,11 +194,11 @@ sub _numify {
     # Gecko revisions like: "20080915000512" will cause an
     #   integer overflow warning. use bigint?
     local $SIG{__WARN__} = sub {
-        my $w = shift;
-        my $ok = $w !~ m{Integer overflow in version} &&
-                 $w !~ m{Version string .+? contains invalid data; ignoring:};
-        warn $w if $ok;
+        warn $_[0] if $_[0] !~ RE_WARN_OVERFLOW && $_[0] !~ RE_WARN_INVALID;
     };
+    # if version::vpp is used it'll identify 420 as a v-string
+    # add a floating point to fool it
+    $v .= '.0' if index($v, '.') == -1;
     my $rv = version->new("$v")->numify;
     return $rv;
 }
@@ -240,8 +242,8 @@ Parse::HTTP::UserAgent - Parser for the User Agent string
 
 =head1 DESCRIPTION
 
-This document describes version C<0.14> of C<Parse::HTTP::UserAgent>
-released on C<29 August 2009>.
+This document describes version C<0.15> of C<Parse::HTTP::UserAgent>
+released on C<2 September 2009>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
@@ -342,14 +344,47 @@ If you pass a wrong parameter to the dumper, it'll croak.
 
 =head2 Similar Functionality
 
-L<HTTP::BrowserDetect>, L<HTML::ParseBrowser>, L<HTTP::DetectUserAgent>.
+=over 4
+
+=item *
+
+L<HTTP::BrowserDetect>
+
+=item *
+
+L<HTML::ParseBrowser>
+
+=item *
+
+L<HTTP::DetectUserAgent>
+
+=item *
+
+L<HTTP::MobileAgent>
+
+=back
 
 =head2 Resources
 
+=over 4
+
+=item *
+
 L<http://en.wikipedia.org/wiki/User_agent>,
+
+=item *
+
 L<http://www.zytrax.com/tech/web/browser_ids.htm>,
+
+=item *
+
 L<http://www.zytrax.com/tech/web/mobile_ids.html>,
+
+=item *
+
 L<http://www.webaim.org/blog/user-agent-string-history/>.
+
+=back
 
 =head1 AUTHOR
 
