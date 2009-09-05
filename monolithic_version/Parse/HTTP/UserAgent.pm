@@ -15,7 +15,7 @@ package Parse::HTTP::UserAgent::Constants;
 use strict;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 BEGIN { $OID = -1 }
 use constant UA_STRING           => ++$OID; # just for information
@@ -43,6 +43,10 @@ use constant IS_MAXTHON          => ++$OID; # Is this the dumb IE faker?
 use constant IS_EXTENDED         => ++$OID;
 use constant MAXID               =>   $OID;
 
+use constant TK_NAME             => 0;
+use constant TK_ORIGINAL_VERSION => 1;
+use constant TK_VERSION          => 2;
+
 use constant RE_FIREFOX_NAMES    => qr{Firefox|Iceweasel|Firebird|Phoenix }xms;
 use constant RE_DOTNET           => qr{ \A [.]NET \s+ CLR \s+ (.+?) \z    }xms;
 use constant RE_WINDOWS_OS       => qr{ \A Win(dows|NT|[0-9]+)?           }xmsi;
@@ -62,6 +66,9 @@ use constant RE_CHAR_SLASH_WS    => qr{[/\s]}xms;
 use constant RE_COMMA            => qr{ [,] }xms;
 use constant RE_TWO_LETTER_LANG  => qr{ \A [a-z]{2} \z }xms;
 use constant RE_DIGIT_DOT_DIGIT  => qr{\d+[.]?\d};
+
+use constant RE_WARN_OVERFLOW => qr{Integer overflow in version};
+use constant RE_WARN_INVALID  => qr{Version string .+? contains invalid data; ignoring:};
 
 use constant LIST_ROBOTS         => qw(
     Wget
@@ -124,9 +131,16 @@ BEGIN {
             RE_COMMA
             RE_TWO_LETTER_LANG
             RE_DIGIT_DOT_DIGIT
+            RE_WARN_OVERFLOW
+            RE_WARN_INVALID
         )],
         list => [qw(
             LIST_ROBOTS
+        )],
+        tk => [qw(
+            TK_NAME
+            TK_ORIGINAL_VERSION
+            TK_VERSION
         )],
     );
 
@@ -141,7 +155,7 @@ use Parse::HTTP::UserAgent::Constants qw(:all);
 use constant ERROR_MAXTHON_VERSION => "Unable to extract Maxthon version from Maxthon UA-string";
 use constant ERROR_MAXTHON_MSIE    => "Unable to extract MSIE from Maxthon UA-string";
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 sub _extract_dotnet {
     my $self = shift;
@@ -175,6 +189,8 @@ sub _fix_opera {
         }
         push @buf, $e;
     }
+    $self->_fix_os_lang;
+    $self->_fix_windows_nt('skip_os');
     $self->[UA_EXTRAS] = [ @buf ];
     return;
 }
@@ -275,8 +291,8 @@ sub _parse_safari {
     $self->[UA_VERSION_RAW] = $version;
     $self->[UA_TOOLKIT]     = [ split RE_SLASH, $extra->[0] ];
     $self->[UA_LANG]        = pop @{ $thing };
-    $self->[UA_OS]          = length $thing->[-1] > 1 ? pop @{ $thing }
-                                                      : shift @{$thing}
+    $self->[UA_OS]          = length $thing->[-1] > 1 ? pop   @{ $thing }
+                                                      : shift @{ $thing }
                             ;
     $self->[UA_DEVICE]      = shift @{$thing} if $thing->[0] eq 'iPhone';
     $self->[UA_EXTRAS]      = [ @{$thing}, @others ];
@@ -400,6 +416,10 @@ sub _parse_gecko {
                 $self->[UA_LANG] = $self->trim($lang) if $lang;
                 next;
             }
+            if ( ! $self->[UA_OS] && $e =~ m{ Win(?:NT|dows) }xmsi ) {
+                $self->[UA_OS] = $e;
+                next;
+            }
             if ( $e =~ RE_TWO_LETTER_LANG ) {
                 $self->[UA_LANG] = $e;
                 next;
@@ -413,10 +433,11 @@ sub _parse_gecko {
 
         $self->[UA_EXTRAS]        = [ @buf ];
         $self->[UA_ORIGINAL_NAME] = $before if $before ne $self->[UA_NAME];
+        $self->_fix_windows_nt;
         return 1 ;
     }
 
-    if ( $self->[UA_TOOLKIT] && $self->[UA_TOOLKIT][0] eq 'Gecko' ) {
+    if ( $self->[UA_TOOLKIT] && $self->[UA_TOOLKIT][TK_NAME] eq 'Gecko' ) {
         ($self->[UA_NAME], $self->[UA_VERSION_RAW]) = split RE_SLASH, $moz;
         if ( $self->[UA_NAME] && $self->[UA_VERSION_RAW] ) {
             $self->[UA_PARSER] = 'mozilla_family:gecko';
@@ -424,6 +445,28 @@ sub _parse_gecko {
         }
     }
 
+    return;
+}
+
+sub _fix_os_lang {
+    my $self = shift;
+    if ( $self->[UA_OS] && length $self->[UA_OS] == 2 ) {
+        $self->[UA_LANG] = $self->[UA_OS];
+        $self->[UA_OS]   = undef;
+    }
+    return;
+}
+
+sub _fix_windows_nt {
+    my $self    = shift;
+    my $skip_os = shift; # ie os can be undef
+    my $os      = $self->[UA_OS] || '';
+    return if ( ! $os              && ! $skip_os )
+        ||    (   $os ne 'windows' && ! $skip_os )
+        ||      ! $self->[UA_EXTRAS][0]
+        ||        $self->[UA_EXTRAS][0] !~ m{ NT\s?(\d.*?) \z }xmsi;
+    $self->[UA_EXTRAS][0] = $self->[UA_OS]; # restore
+    $self->[UA_OS] = "Windows NT $1"; # fix
     return;
 }
 
@@ -566,7 +609,7 @@ use strict;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
@@ -622,7 +665,7 @@ sub _is_gecko {
 sub _is_generic { #TODO: this is actually a parser
     my $self = shift;
     return 1 if $self->_generic_name_version( @_ ) ||
-                $self->_generic_compatible(   @_ )   ||
+                $self->_generic_compatible(   @_ ) ||
                 $self->_generic_moz_thing(    @_ );
     return;
 }
@@ -659,7 +702,7 @@ use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use Carp qw( croak );
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 sub dumper {
     my $self = shift;
@@ -751,7 +794,7 @@ use strict;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 #TODO: new accessors
 #wap
@@ -804,7 +847,7 @@ package Parse::HTTP::UserAgent;
 use strict;
 use vars qw( $VERSION );
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -816,11 +859,9 @@ use overload '""',    => 'name',
              '0+',    => 'version',
              fallback => 1,
 ;
-use constant RE_WARN_OVERFLOW => qr{Integer overflow in version};
-use constant RE_WARN_INVALID  => qr{Version string .+? contains invalid data; ignoring:};
 use version;
-use Parse::HTTP::UserAgent::Constants qw(:all);
 use Carp qw( croak );
+use Parse::HTTP::UserAgent::Constants qw(:all);
 
 BEGIN {
     constant->import( DEBUG => 0 ) if not defined &DEBUG;
@@ -946,7 +987,8 @@ sub _post_parse {
     $self->[UA_EXTRAS] = [ @buf ];
 
     if ( $self->[UA_TOOLKIT] ) {
-        push @{ $self->[UA_TOOLKIT] }, $self->_numify( $self->[UA_TOOLKIT][1] );
+        push @{ $self->[UA_TOOLKIT] },
+             $self->_numify( $self->[UA_TOOLKIT][TK_ORIGINAL_VERSION] );
     }
 
     if( $self->[UA_MOZILLA] ) {
@@ -1049,8 +1091,8 @@ generated with an automatic build tool. If you experience problems
 with this version, please install and use the supported standard
 version. This version is B<NOT SUPPORTED>.
 
-This document describes version C<0.15> of C<Parse::HTTP::UserAgent>
-released on C<2 September 2009>.
+This document describes version C<0.16> of C<Parse::HTTP::UserAgent>
+released on C<5 September 2009>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
@@ -1082,7 +1124,7 @@ also a structure dumper, useful for debugging.
 
 =head2 new STRING [, OPTIONS ]
 
-Constructor. Takes the user agent string as the only parameter and returns
+Constructor. Takes the user agent string as the first parameter and returns
 an object based on the parsed structure.
 
 The optional C<OPTIONS> parameter (must be a hashref) can be used to pass
@@ -1092,12 +1134,13 @@ several parameters:
 
 =item *
 
-C<extended>: controls if the extended probe qill be used or not. Default
+C<extended>: controls if the extended probe will be used or not. Default
 is true. Set this to false to disable:
 
    $ua = Parse::HTTP::UserAgent->new( $str, { extended => 0 } );
 
-Can be used to speed up the parser by disabling detection of non-major browsers.
+Can be used to speed up the parser by disabling detection of non-major browsers,
+robots and most mobile agents.
 
 =back
 

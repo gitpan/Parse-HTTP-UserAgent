@@ -3,7 +3,7 @@ use strict;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
@@ -59,7 +59,7 @@ sub _is_gecko {
 sub _is_generic { #TODO: this is actually a parser
     my $self = shift;
     return 1 if $self->_generic_name_version( @_ ) ||
-                $self->_generic_compatible(   @_ )   ||
+                $self->_generic_compatible(   @_ ) ||
                 $self->_generic_moz_thing(    @_ );
     return;
 }
@@ -102,8 +102,8 @@ Parse::HTTP::UserAgent::Base::IS - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.15> of C<Parse::HTTP::UserAgent::Base::IS>
-released on C<2 September 2009>.
+This document describes version C<0.16> of C<Parse::HTTP::UserAgent::Base::IS>
+released on C<5 September 2009>.
 
 Internal module.
 

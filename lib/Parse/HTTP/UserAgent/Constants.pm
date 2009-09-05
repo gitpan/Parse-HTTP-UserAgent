@@ -2,7 +2,7 @@ package Parse::HTTP::UserAgent::Constants;
 use strict;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 BEGIN { $OID = -1 }
 use constant UA_STRING           => ++$OID; # just for information
@@ -30,6 +30,10 @@ use constant IS_MAXTHON          => ++$OID; # Is this the dumb IE faker?
 use constant IS_EXTENDED         => ++$OID;
 use constant MAXID               =>   $OID;
 
+use constant TK_NAME             => 0;
+use constant TK_ORIGINAL_VERSION => 1;
+use constant TK_VERSION          => 2;
+
 use constant RE_FIREFOX_NAMES    => qr{Firefox|Iceweasel|Firebird|Phoenix }xms;
 use constant RE_DOTNET           => qr{ \A [.]NET \s+ CLR \s+ (.+?) \z    }xms;
 use constant RE_WINDOWS_OS       => qr{ \A Win(dows|NT|[0-9]+)?           }xmsi;
@@ -49,6 +53,9 @@ use constant RE_CHAR_SLASH_WS    => qr{[/\s]}xms;
 use constant RE_COMMA            => qr{ [,] }xms;
 use constant RE_TWO_LETTER_LANG  => qr{ \A [a-z]{2} \z }xms;
 use constant RE_DIGIT_DOT_DIGIT  => qr{\d+[.]?\d};
+
+use constant RE_WARN_OVERFLOW => qr{Integer overflow in version};
+use constant RE_WARN_INVALID  => qr{Version string .+? contains invalid data; ignoring:};
 
 use constant LIST_ROBOTS         => qw(
     Wget
@@ -111,9 +118,16 @@ BEGIN {
             RE_COMMA
             RE_TWO_LETTER_LANG
             RE_DIGIT_DOT_DIGIT
+            RE_WARN_OVERFLOW
+            RE_WARN_INVALID
         )],
         list => [qw(
             LIST_ROBOTS
+        )],
+        tk => [qw(
+            TK_NAME
+            TK_ORIGINAL_VERSION
+            TK_VERSION
         )],
     );
 
@@ -133,8 +147,8 @@ Parse::HTTP::UserAgent::Constants - Various constants
 
 =head1 DESCRIPTION
 
-This document describes version C<0.15> of C<Parse::HTTP::UserAgent::Constants>
-released on C<2 September 2009>.
+This document describes version C<0.16> of C<Parse::HTTP::UserAgent::Constants>
+released on C<5 September 2009>.
 
 Internal module
 

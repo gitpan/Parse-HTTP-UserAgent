@@ -5,7 +5,7 @@ use Parse::HTTP::UserAgent::Constants qw(:all);
 use constant ERROR_MAXTHON_VERSION => "Unable to extract Maxthon version from Maxthon UA-string";
 use constant ERROR_MAXTHON_MSIE    => "Unable to extract MSIE from Maxthon UA-string";
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 sub _extract_dotnet {
     my $self = shift;
@@ -39,6 +39,8 @@ sub _fix_opera {
         }
         push @buf, $e;
     }
+    $self->_fix_os_lang;
+    $self->_fix_windows_nt('skip_os');
     $self->[UA_EXTRAS] = [ @buf ];
     return;
 }
@@ -139,8 +141,8 @@ sub _parse_safari {
     $self->[UA_VERSION_RAW] = $version;
     $self->[UA_TOOLKIT]     = [ split RE_SLASH, $extra->[0] ];
     $self->[UA_LANG]        = pop @{ $thing };
-    $self->[UA_OS]          = length $thing->[-1] > 1 ? pop @{ $thing }
-                                                      : shift @{$thing}
+    $self->[UA_OS]          = length $thing->[-1] > 1 ? pop   @{ $thing }
+                                                      : shift @{ $thing }
                             ;
     $self->[UA_DEVICE]      = shift @{$thing} if $thing->[0] eq 'iPhone';
     $self->[UA_EXTRAS]      = [ @{$thing}, @others ];
@@ -264,6 +266,10 @@ sub _parse_gecko {
                 $self->[UA_LANG] = $self->trim($lang) if $lang;
                 next;
             }
+            if ( ! $self->[UA_OS] && $e =~ m{ Win(?:NT|dows) }xmsi ) {
+                $self->[UA_OS] = $e;
+                next;
+            }
             if ( $e =~ RE_TWO_LETTER_LANG ) {
                 $self->[UA_LANG] = $e;
                 next;
@@ -277,10 +283,11 @@ sub _parse_gecko {
 
         $self->[UA_EXTRAS]        = [ @buf ];
         $self->[UA_ORIGINAL_NAME] = $before if $before ne $self->[UA_NAME];
+        $self->_fix_windows_nt;
         return 1 ;
     }
 
-    if ( $self->[UA_TOOLKIT] && $self->[UA_TOOLKIT][0] eq 'Gecko' ) {
+    if ( $self->[UA_TOOLKIT] && $self->[UA_TOOLKIT][TK_NAME] eq 'Gecko' ) {
         ($self->[UA_NAME], $self->[UA_VERSION_RAW]) = split RE_SLASH, $moz;
         if ( $self->[UA_NAME] && $self->[UA_VERSION_RAW] ) {
             $self->[UA_PARSER] = 'mozilla_family:gecko';
@@ -288,6 +295,28 @@ sub _parse_gecko {
         }
     }
 
+    return;
+}
+
+sub _fix_os_lang {
+    my $self = shift;
+    if ( $self->[UA_OS] && length $self->[UA_OS] == 2 ) {
+        $self->[UA_LANG] = $self->[UA_OS];
+        $self->[UA_OS]   = undef;
+    }
+    return;
+}
+
+sub _fix_windows_nt {
+    my $self    = shift;
+    my $skip_os = shift; # ie os can be undef
+    my $os      = $self->[UA_OS] || '';
+    return if ( ! $os              && ! $skip_os )
+        ||    (   $os ne 'windows' && ! $skip_os )
+        ||      ! $self->[UA_EXTRAS][0]
+        ||        $self->[UA_EXTRAS][0] !~ m{ NT\s?(\d.*?) \z }xmsi;
+    $self->[UA_EXTRAS][0] = $self->[UA_OS]; # restore
+    $self->[UA_OS] = "Windows NT $1"; # fix
     return;
 }
 
@@ -437,8 +466,8 @@ Parse::HTTP::UserAgent::Base::Parsers - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.15> of C<Parse::HTTP::UserAgent::Base::Parsers>
-released on C<2 September 2009>.
+This document describes version C<0.16> of C<Parse::HTTP::UserAgent::Base::Parsers>
+released on C<5 September 2009>.
 
 Internal module.
 

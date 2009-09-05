@@ -2,7 +2,7 @@ package Parse::HTTP::UserAgent;
 use strict;
 use vars qw( $VERSION );
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -14,11 +14,9 @@ use overload '""',    => 'name',
              '0+',    => 'version',
              fallback => 1,
 ;
-use constant RE_WARN_OVERFLOW => qr{Integer overflow in version};
-use constant RE_WARN_INVALID  => qr{Version string .+? contains invalid data; ignoring:};
 use version;
-use Parse::HTTP::UserAgent::Constants qw(:all);
 use Carp qw( croak );
+use Parse::HTTP::UserAgent::Constants qw(:all);
 
 BEGIN {
     constant->import( DEBUG => 0 ) if not defined &DEBUG;
@@ -144,7 +142,8 @@ sub _post_parse {
     $self->[UA_EXTRAS] = [ @buf ];
 
     if ( $self->[UA_TOOLKIT] ) {
-        push @{ $self->[UA_TOOLKIT] }, $self->_numify( $self->[UA_TOOLKIT][1] );
+        push @{ $self->[UA_TOOLKIT] },
+             $self->_numify( $self->[UA_TOOLKIT][TK_ORIGINAL_VERSION] );
     }
 
     if( $self->[UA_MOZILLA] ) {
@@ -242,8 +241,8 @@ Parse::HTTP::UserAgent - Parser for the User Agent string
 
 =head1 DESCRIPTION
 
-This document describes version C<0.15> of C<Parse::HTTP::UserAgent>
-released on C<2 September 2009>.
+This document describes version C<0.16> of C<Parse::HTTP::UserAgent>
+released on C<5 September 2009>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
@@ -275,7 +274,7 @@ also a structure dumper, useful for debugging.
 
 =head2 new STRING [, OPTIONS ]
 
-Constructor. Takes the user agent string as the only parameter and returns
+Constructor. Takes the user agent string as the first parameter and returns
 an object based on the parsed structure.
 
 The optional C<OPTIONS> parameter (must be a hashref) can be used to pass
@@ -285,12 +284,13 @@ several parameters:
 
 =item *
 
-C<extended>: controls if the extended probe qill be used or not. Default
+C<extended>: controls if the extended probe will be used or not. Default
 is true. Set this to false to disable:
 
    $ua = Parse::HTTP::UserAgent->new( $str, { extended => 0 } );
 
-Can be used to speed up the parser by disabling detection of non-major browsers.
+Can be used to speed up the parser by disabling detection of non-major browsers,
+robots and most mobile agents.
 
 =back
 
