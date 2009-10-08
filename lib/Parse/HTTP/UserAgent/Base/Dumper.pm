@@ -1,24 +1,26 @@
 package Parse::HTTP::UserAgent::Base::Dumper;
 use strict;
+use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use Carp qw( croak );
 
-$VERSION = '0.16';
+$VERSION = '0.17';
 
 sub dumper {
-    my $self = shift;
-    my %opt  = @_ % 2 ? () : (
+    my($self, @args) = @_;
+    my %opt  = @args % 2 ? () : (
         type      => 'dumper',
         format    => 'none',
         interpret => 0,
-        @_
+        @args
     );
-    my $meth = '_dumper_' . lc($opt{type});
+    my $meth = '_dumper_' . lc $opt{type};
     croak "Don't know how to dump with $opt{type}" if ! $self->can( $meth );
     my $buf = $self->$meth( \%opt );
     return $buf if defined wantarray;
-    print $buf ."\n";
+    my $pok = print $buf ."\n";
+    return;
 }
 
 sub _dump_to_struct {
@@ -63,13 +65,13 @@ sub _dumper_dumper {
     my @ids  = $opt->{args} ?  @{ $opt->{args} } : $self->_object_ids;
     my $args = $opt->{args} ?                  1 : 0;
     my $max  = 0;
-    map { my $l = length $_; $max = $l if $l > $max; } @ids;
+    map { $max = length $_ if length $_ > $max; } @ids;
     my @titles = qw( FIELD VALUE );
     my $buf    = sprintf "%s%s%s\n%s%s%s\n",
                         $titles[0],
-                        (' ' x (2 + $max - length $titles[0])),
+                        (q{ } x (2 + $max - length $titles[0])),
                         $titles[1],
-                        '-' x $max, ' ' x 2, '-' x ($max*2);
+                        q{-} x $max, q{ } x 2, q{-} x ($max*2);
     require Data::Dumper;
     foreach my $id ( @ids ) {
         my $name = $args ? $id->{name} : $id;
@@ -80,12 +82,12 @@ sub _dumper_dumper {
                     my $rv = $d->Dump;
                     $rv =~ s{ \$VAR1 \s+ = \s+ }{}xms;
                     $rv =~ s{ ; }{}xms;
-                    $rv eq '[]' ? '' : $rv;
+                    $rv eq '[]' ? q{} : $rv;
                 } if $val && ref $val;
         $buf .= sprintf "%s%s%s\n",
                         $name,
-                        (' ' x (2 + $max - length $name)),
-                        defined $val ? $val : ''
+                        (q{ } x (2 + $max - length $name)),
+                        defined $val ? $val : q{}
                         ;
     }
     return $buf;
@@ -103,8 +105,8 @@ Parse::HTTP::UserAgent::Base::Dumper - Base class to dump parsed structure
 
 =head1 DESCRIPTION
 
-This document describes version C<0.16> of C<Parse::HTTP::UserAgent::Base::Dumper>
-released on C<5 September 2009>.
+This document describes version C<0.17> of C<Parse::HTTP::UserAgent::Base::Dumper>
+released on C<8 October 2009>.
 
 The parsed structure can be dumped to a text table for debugging.
 

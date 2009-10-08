@@ -1,0 +1,27 @@
+# disable these
+
+[-Miscellanea::RequireRcsKeywords]
+[-ValuesAndExpressions::ProhibitConstantPragma]
+[-ValuesAndExpressions::ProhibitLeadingZeros]
+[-Variables::RequireInitializationForLocalVars]
+[-Modules::ProhibitMultiplePackages]
+[-ControlStructures::ProhibitPostfixControls]
+[-Modules::ProhibitAutomaticExportation]
+[-CodeLayout::RequireTidyCode]
+[-Documentation::RequirePodSections]
+[-Variables::ProhibitPunctuationVars]
+[-Modules::RequireExplicitPackage]
+[-BuiltinFunctions::ProhibitStringyEval]
+[-Modules::RequireVersionVar]
+[-ValuesAndExpressions::RequireInterpolationOfMetachars]
+
+# configurable parts
+
+[TestingAndDebugging::ProhibitNoStrict]
+allow = refs
+
+[Subroutines::ProhibitManyArgs]
+max_arguments = 8
+
+[Variables::RequireLocalizedPunctuationVars]
+allow = %ENV

@@ -1,14 +1,17 @@
 package Build;
 use strict;
 use vars qw( $VERSION );
-use warnings;
 use constant TAINT_SHEBANG => "#!perl -Tw\nuse constant TAINTMODE => 1;\n";
 
-$VERSION = '0.62';
+# since this is a builder we don't care about warnings.pm to support older perl
+## no critic (RequireUseWarnings)
+
+$VERSION = '0.63';
 
 use File::Find;
 use File::Spec;
 use File::Path;
+use Carp qw( croak );
 use Build::Spec;
 use base qw( Module::Build );
 use constant RE_VERSION_LINE => qr{
@@ -63,7 +66,7 @@ sub mytrim {
    my $self = shift;
    my $s = shift;
    return $s if ! $s; # false or undef
-   my $extra = shift || '';
+   my $extra = shift || q{};
       $s =~ s{\A \s+   }{$extra}xms;
       $s =~ s{   \s+ \z}{$extra}xms;
    return $s;
@@ -71,11 +74,10 @@ sub mytrim {
 
 sub ACTION_dist {
    my $self = shift;
-   warn  sprintf(
-            "RUNNING 'dist' Action from subclass %s v%s\n",
-            ref($self),
-            $VERSION
-         );
+   my $msg  = sprintf q{RUNNING 'dist' Action from subclass %s v%s},
+                      ref($self),
+                      $VERSION;
+   warn "$msg\n";
    my @modules;
    find {
       wanted => sub {
@@ -86,7 +88,7 @@ sub ACTION_dist {
          warn "FOUND Module: $file\n";
       },
       no_chdir => 1,
-   }, "lib";
+   }, 'lib';
    $self->_create_taint_mode_tests      if $self->taint_mode_tests;
    $self->_change_versions( \@modules ) if $self->change_versions;
    $self->_build_monolith(  \@modules ) if $self->build_monolith;
@@ -110,14 +112,14 @@ sub _create_taint_mode_tests {
 
       next if -e $taints[$i]; # already created!
 
-      open my $ORIG, '<:raw', $tests[$i]  or die "Can not open file($tests[$i]): $!";
-      open my $DEST, '>:raw', $taints[$i] or die "Can not open file($taints[$i]): $!";
-      print $DEST TAINT_SHEBANG;
+      open my $ORIG, '<:raw', $tests[$i]  or croak "Can not open file($tests[$i]): $!";
+      open my $DEST, '>:raw', $taints[$i] or croak "Can not open file($taints[$i]): $!";
+      print {$DEST} TAINT_SHEBANG or croak "Can not print to destination: $!";
       while ( my $line = readline $ORIG ) {
-         print $DEST $line;
+         print {$DEST} $line or croak "Can not print to destination: $!";
       }
-      close $ORIG;
-      close $DEST;
+      close $ORIG or croak "Can not close original: $!";
+      close $DEST or croak "Can not close destination: $!";
       $self->_write_file( '>>', 'MANIFEST', "$taints[$i]\n");
    }
    return;
@@ -128,8 +130,8 @@ sub _change_versions {
    my $files = shift;
    my $dver  = $self->dist_version;
 
-   my($mday, $mon, $year) = (localtime time)[3, 4, 5];
-   my $date = join ' ', $mday, [MONTHS]->[$mon], $year + 1900;
+   my(undef, undef, undef, $mday, $mon, $year) = localtime time;
+   my $date = join q{ }, $mday, [MONTHS]->[$mon], $year + 1900;
 
    warn "CHANGING VERSIONS\n";
    warn "\tDISTRO Version: $dver\n";
@@ -137,15 +139,15 @@ sub _change_versions {
    foreach my $mod ( @{ $files } ) {
       warn "\tPROCESSING $mod\n";
       my $new = $mod . '.new';
-      open my $RO_FH, '<:raw', $mod or die "Can not open file($mod): $!";
-      open my $W_FH , '>:raw', $new or die "Can not open file($new): $!";
+      open my $RO_FH, '<:raw', $mod or croak "Can not open file($mod): $!";
+      open my $W_FH , '>:raw', $new or croak "Can not open file($new): $!";
 
       CHANGE_VERSION: while ( my $line = readline $RO_FH ) {
          if ( $line =~ RE_VERSION_LINE ) {
             my $oldv      = $1;
             my $remainder = $2;
             warn "\tCHANGED Version from $oldv to $dver\n";
-            printf $W_FH VTEMP . $remainder, $dver;
+            printf {$W_FH} VTEMP . $remainder, $dver;
             last CHANGE_VERSION;
          }
          print $W_FH $line;
@@ -185,11 +187,11 @@ sub _change_versions {
          }
       }
 
-      close $RO_FH or die "Can not close file($mod): $!";
-      close $W_FH  or die "Can not close file($new): $!";
+      close $RO_FH or croak "Can not close file($mod): $!";
+      close $W_FH  or croak "Can not close file($new): $!";
 
-      unlink($mod) || die "Can not remove original module($mod): $!";
-      rename( $new, $mod ) || die "Can not rename( $new, $mod ): $!";
+      unlink($mod) || croak "Can not remove original module($mod): $!";
+      rename( $new, $mod ) || croak "Can not rename( $new, $mod ): $!";
       warn "\tRENAME Successful!\n";
    }
 
@@ -199,7 +201,7 @@ sub _change_versions {
 sub _build_monolith {
    my $self   = shift;
    my $files  = shift;
-   my @mono_dir = ( monolithic_version => split /::/, $self->module_name );
+   my @mono_dir = ( monolithic_version => split /::/xms, $self->module_name );
    my $mono_file = pop(@mono_dir) . '.pm';
    my $dir    = File::Spec->catdir( @mono_dir );
    my $mono   = File::Spec->catfile( $dir, $mono_file );
@@ -258,7 +260,7 @@ sub _build_monolith {
 
    ADD_PRE: {
       require File::Copy;
-      File::Copy::copy( $mono, $copy ) or die "Copy failed: $!";
+      File::Copy::copy( $mono, $copy ) or croak "Copy failed: $!";
       my @inc_files = map {
                         my $f = $_;
                         $f =~ s{    \\   }{/}xmsg;
@@ -273,32 +275,34 @@ sub _build_monolith {
                         $m;
                      } @inc_files;
 
-      open my $W,    '>:raw', $mono   or die "Can not open file($mono): $!";
-      open my $TOP,  '<:raw', $buffer or die "Can not open file($buffer): $!";
-      open my $COPY, '<:raw', $copy   or die "Can not open file($copy): $!";
+      open my $W,    '>:raw', $mono or croak "Can not open file($mono): $!";
 
-      printf $W q/BEGIN { $INC{$_} = 1 for qw(%s); }/, join(' ', @inc_files);
-      print  $W "\n";
+      printf {$W} q/BEGIN { $INC{$_} = 1 for qw(%s); }/, join q{ }, @inc_files
+              or croak "Can not print to MONO file: $!";
+      print  {$W} "\n" or croak "Can not print to MONO file: $!";
 
       foreach my $name ( @packages ) {
-         print $W qq/package $name;\nsub ________monolith {}\n/;
+         print {$W} qq/package $name;\nsub ________monolith {}\n/
+               or croak "Can not print to MONO file: $!";
       }
 
-      while ( my $line = readline $TOP ) {
-         print $W $line;
+      open my $TOP,  '<:raw', $buffer or croak "Can not open file($buffer): $!";
+      while ( my $line = <$TOP> ) {
+         print {$W} $line or croak "Can not print to BUFFER file: $!";
       }
+      close $TOP or croak 'Can not close BUFFER file';
 
-      while ( my $line = readline $COPY ) {
-         print $W $line;
+      open my $COPY, '<:raw', $copy   or croak "Can not open file($copy): $!";
+      while ( my $line = <$COPY> ) {
+         print {$W} $line or croak "Can not print to COPY file: $!";
       }
+      close $COPY or croak "Can not close COPY file: $!";
 
-      close  $W;
-      close  $COPY;
-      close  $TOP;
+      close  $W or croak "Can not close MONO file: $!";
    }
 
    if ( $POD ) {
-      open my $MONOX, '>>:raw', $mono or die "Can not open file($mono): $!";
+      open my $MONOX, '>>:raw', $mono or croak "Can not open file($mono): $!";
       foreach my $line ( split /\n/, $POD ) {
          print $MONOX $line, "\n";
          print $MONOX $self->_monolith_pod_warning if "$line\n" =~ RE_POD_LINE;
@@ -333,19 +337,18 @@ sub _build_monolith {
       "$monof\tThe monolithic version of $name",
       " to ease dropping into web servers. Generated automatically.\n"
    );
+   return;
 }
 
 sub _write_file {
-   my $self = shift;
-   my $mode = shift;
-   my $file = shift;
-   my @data = @_;
+   my($self, $mode, $file, @data) = @_;
    $mode = $mode . ':raw';
-   open my $FH, $mode, $file or die "Can not open file($file): $!";
+   open my $FH, $mode, $file or croak "Can not open file($file): $!";
    foreach my $content ( @data ) {
-      print $FH $content;
+      print {$FH} $content or croak "Can not print to FH: $!";
    }
-   close $FH;
+   close $FH or croak "Can not close $file $!";
+   return;
 }
 
 sub _monolith_add_to_top {

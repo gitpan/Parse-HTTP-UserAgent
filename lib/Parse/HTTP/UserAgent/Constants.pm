@@ -1,10 +1,16 @@
 package Parse::HTTP::UserAgent::Constants;
 use strict;
+use warnings;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.16';
+$VERSION = '0.17';
 
-BEGIN { $OID = -1 }
+use constant MINUS_ONE           => -1;
+use constant NO_IMATCH           => -1; # for index()
+use constant LAST_ELEMENT        => -1;
+
+BEGIN { $OID = MINUS_ONE }
+
 use constant UA_STRING           => ++$OID; # just for information
 use constant UA_UNKNOWN          => ++$OID; # failed to detect?
 use constant UA_GENERIC          => ++$OID; # parsed with a generic parser.
@@ -52,10 +58,10 @@ use constant RE_OBJECT_ID        => qr{ \A UA_ }xms;
 use constant RE_CHAR_SLASH_WS    => qr{[/\s]}xms;
 use constant RE_COMMA            => qr{ [,] }xms;
 use constant RE_TWO_LETTER_LANG  => qr{ \A [a-z]{2} \z }xms;
-use constant RE_DIGIT_DOT_DIGIT  => qr{\d+[.]?\d};
+use constant RE_DIGIT_DOT_DIGIT  => qr{\d+[.]?\d}xms;
 
-use constant RE_WARN_OVERFLOW => qr{Integer overflow in version};
-use constant RE_WARN_INVALID  => qr{Version string .+? contains invalid data; ignoring:};
+use constant RE_WARN_OVERFLOW => qr{\QInteger overflow in version\E}xms;
+use constant RE_WARN_INVALID  => qr{\QVersion string .+? contains invalid data; ignoring:\E}xms;
 
 use constant LIST_ROBOTS         => qw(
     Wget
@@ -67,10 +73,9 @@ use constant LIST_ROBOTS         => qw(
     msnbot
 ), 'Yahoo! Slurp';
 
-use Exporter ();
+use base qw( Exporter );
 
 BEGIN {
-    @ISA         = qw( Exporter );
     %EXPORT_TAGS = (
         object_ids => [qw(
             IS_PARSED
@@ -129,6 +134,10 @@ BEGIN {
             TK_ORIGINAL_VERSION
             TK_VERSION
         )],
+        etc => [qw(
+            NO_IMATCH
+            LAST_ELEMENT
+        )],
     );
 
     @EXPORT_OK        = map { @{ $_ } } values %EXPORT_TAGS;
@@ -147,8 +156,8 @@ Parse::HTTP::UserAgent::Constants - Various constants
 
 =head1 DESCRIPTION
 
-This document describes version C<0.16> of C<Parse::HTTP::UserAgent::Constants>
-released on C<5 September 2009>.
+This document describes version C<0.17> of C<Parse::HTTP::UserAgent::Constants>
+released on C<8 October 2009>.
 
 Internal module
 

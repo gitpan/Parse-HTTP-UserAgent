@@ -1,29 +1,30 @@
 package Parse::HTTP::UserAgent::Base::Accessors;
 use strict;
+use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.16';
+$VERSION = '0.17';
 
 #TODO: new accessors
 #wap
 #mobile
 #device
 
-sub name             { shift->[UA_NAME]             || '' }
-sub unknown          { shift->[UA_UNKNOWN]          || '' }
-sub generic          { shift->[UA_GENERIC]          || '' }
-sub os               { shift->[UA_OS]               || '' }
-sub lang             { shift->[UA_LANG]             || '' }
-sub strength         { shift->[UA_STRENGTH]         || '' }
-sub parser           { shift->[UA_PARSER]           || '' }
-sub original_name    { shift->[UA_ORIGINAL_NAME]    || '' }
-sub original_version { shift->[UA_ORIGINAL_VERSION] || '' }
-sub robot            { shift->[UA_ROBOT]            || 0  }
+sub name             { return shift->[UA_NAME]             || q{} }
+sub unknown          { return shift->[UA_UNKNOWN]          || q{} }
+sub generic          { return shift->[UA_GENERIC]          || q{} }
+sub os               { return shift->[UA_OS]               || q{} }
+sub lang             { return shift->[UA_LANG]             || q{} }
+sub strength         { return shift->[UA_STRENGTH]         || q{} }
+sub parser           { return shift->[UA_PARSER]           || q{} }
+sub original_name    { return shift->[UA_ORIGINAL_NAME]    || q{} }
+sub original_version { return shift->[UA_ORIGINAL_VERSION] || q{} }
+sub robot            { return shift->[UA_ROBOT]            ||   0 }
 
 sub version {
     my $self = shift;
-    my $type = shift || '';
+    my $type = shift || q{};
     return $self->[ $type eq 'raw' ? UA_VERSION_RAW : UA_VERSION ] || 0;
 }
 
@@ -73,8 +74,8 @@ Parse::HTTP::UserAgent::Base::Accessors - Available accessors
 
 =head1 DESCRIPTION
 
-This document describes version C<0.16> of C<Parse::HTTP::UserAgent::Base::Accessors>
-released on C<5 September 2009>.
+This document describes version C<0.17> of C<Parse::HTTP::UserAgent::Base::Accessors>
+released on C<8 October 2009>.
 
 Ther methods can be used to access the various parts of the parsed structure.
 

@@ -17,6 +17,7 @@ t/02-parser.t
 t/03-strings.t
 t/data/parse.dat
 t/db.pl
+.perlcriticrc
 builder/Build/Spec.pm
 t/201-pod.t
 t/202-pod-coverage.t
