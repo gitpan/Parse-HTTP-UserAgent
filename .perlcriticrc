@@ -25,3 +25,9 @@ max_arguments = 8
 
 [Variables::RequireLocalizedPunctuationVars]
 allow = %ENV
+
+[RegularExpressions::RequireBracesForMultiline]
+allow_all_brackets = 1
+
+[RegularExpressions::ProhibitUnusualDelimiters]
+allow_all_brackets = 1

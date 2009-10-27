@@ -5,7 +5,7 @@ use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use constant OPERA_FAKER_EXTRA_SIZE => 4;
 
-$VERSION = '0.17';
+$VERSION = '0.20';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
@@ -93,6 +93,22 @@ sub _is_strength {
     return;
 }
 
+sub _is_emacs {
+    my($self, $moz) = @_;
+    return index( $moz, 'Emacs-W3/') != NO_IMATCH;
+}
+
+sub _is_moz_only {
+    my($self, $moz, $thing, $extra, $compatible, @others) = @_;
+    return $moz && ! @{ $thing } && ! $extra && ! @others;
+}
+
+sub _is_hotjava {
+    my($self, $moz, $thing, $extra, $compatible, @others) = @_;
+    my @hot = @{ $thing };
+    return @hot == 2 && $hot[1] eq 'Sun';
+}
+
 sub _is_generic_bogus_ie {
     my($self, $extra) = @_;
     return $extra
@@ -114,8 +130,8 @@ Parse::HTTP::UserAgent::Base::IS - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.17> of C<Parse::HTTP::UserAgent::Base::IS>
-released on C<8 October 2009>.
+This document describes version C<0.20> of C<Parse::HTTP::UserAgent::Base::IS>
+released on C<27 October 2009>.
 
 Internal module.
 
