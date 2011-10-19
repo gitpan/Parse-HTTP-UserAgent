@@ -1,7 +1,5 @@
-BEGIN { $INC{$_} = 1 for qw(Parse/HTTP/UserAgent.pm Parse/HTTP/UserAgent/Constants.pm Parse/HTTP/UserAgent/Base/Accessors.pm Parse/HTTP/UserAgent/Base/Dumper.pm Parse/HTTP/UserAgent/Base/IS.pm Parse/HTTP/UserAgent/Base/Parsers.pm); }
+BEGIN { $INC{$_} = 1 for qw(Parse/HTTP/UserAgent.pm Parse/HTTP/UserAgent/Base/Accessors.pm Parse/HTTP/UserAgent/Base/Dumper.pm Parse/HTTP/UserAgent/Base/IS.pm Parse/HTTP/UserAgent/Base/Parsers.pm Parse/HTTP/UserAgent/Constants.pm); }
 package Parse::HTTP::UserAgent;
-sub ________monolith {}
-package Parse::HTTP::UserAgent::Constants;
 sub ________monolith {}
 package Parse::HTTP::UserAgent::Base::Accessors;
 sub ________monolith {}
@@ -12,11 +10,13 @@ sub ________monolith {}
 package Parse::HTTP::UserAgent::Base::Parsers;
 sub ________monolith {}
 package Parse::HTTP::UserAgent::Constants;
+sub ________monolith {}
+package Parse::HTTP::UserAgent::Constants;
 use strict;
 use warnings;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 use constant MINUS_ONE           => -1;
 use constant NO_IMATCH           => -1; # for index()
@@ -53,6 +53,8 @@ use constant TK_NAME             => 0;
 use constant TK_ORIGINAL_VERSION => 1;
 use constant TK_VERSION          => 2;
 
+use constant INSIDE_UNIT_TEST    => $ENV{PARSE_HTTP_USERAGENT_TEST_SUITE};
+use constant INSIDE_VERBOSE_TEST => INSIDE_UNIT_TEST && $ENV{HARNESS_IS_VERBOSE};
 use constant RE_FIREFOX_NAMES    => qr{Firefox|Iceweasel|Firebird|Phoenix }xms;
 use constant RE_DOTNET           => qr{ \A [.]NET \s+ CLR \s+ (.+?) \z    }xms;
 use constant RE_WINDOWS_OS       => qr{ \A Win(dows|NT|[0-9]+)?           }xmsi;
@@ -84,6 +86,7 @@ use constant LIST_ROBOTS         => qw(
     Googlebot
     Baiduspider+
     msnbot
+    bingbot
 ), 'Yahoo! Slurp';
 
 use base qw( Exporter );
@@ -150,6 +153,8 @@ BEGIN {
         etc => [qw(
             NO_IMATCH
             LAST_ELEMENT
+            INSIDE_UNIT_TEST
+            INSIDE_VERBOSE_TEST
         )],
     );
 
@@ -167,7 +172,7 @@ use constant ERROR_MAXTHON_MSIE    => 'Unable to extract MSIE from Maxthon UA-st
 use constant OPERA9                => 9;
 use constant OPERA_TK_LENGTH       => 5;
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 sub _extract_dotnet {
     my($self, @args) = @_;
@@ -179,9 +184,11 @@ sub _extract_dotnet {
             push @dotnet, $match[0];
             next;
         }
-        if ( $e =~ RE_WINDOWS_OS && $1 ne '64' ) {
-            $self->[UA_OS] = $e;
-            next;
+        if ( $e =~ RE_WINDOWS_OS ) {
+            if ( $1 && $1 ne '64' ) {
+                $self->[UA_OS] = $e;
+                next;
+            }
         }
         push @extras, $e;
     }
@@ -310,7 +317,9 @@ sub _parse_safari {
                             ? pop   @{ $thing }
                             : shift @{ $thing }
                             ;
-    $self->[UA_DEVICE]      = shift @{$thing} if $thing->[0] eq 'iPhone';
+    if ( $thing->[0] && $thing->[0] eq 'iPhone' ) {
+        $self->[UA_DEVICE]  = shift @{$thing};
+    }
     $self->[UA_EXTRAS]      = [ @{$thing}, @others ];
 
     if ( length($self->[UA_OS]) == 1 ) {
@@ -689,7 +698,7 @@ use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use constant OPERA_FAKER_EXTRA_SIZE => 4;
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
@@ -809,11 +818,11 @@ use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use Carp qw( croak );
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 sub dumper {
     my($self, @args) = @_;
-    my %opt  = @args % 2 ? () : (
+    my %opt = @args % 2 ? () : (
         type      => 'dumper',
         format    => 'none',
         interpret => 0,
@@ -877,6 +886,7 @@ sub _dumper_dumper {
                         $titles[1],
                         q{-} x $max, q{ } x 2, q{-} x ($max*2);
     require Data::Dumper;
+    my @buf;
     foreach my $id ( @ids ) {
         my $name = $args ? $id->{name} : $id;
         my $val  = $args ? $id->{value} : $self->[ $self->$id() ];
@@ -888,11 +898,14 @@ sub _dumper_dumper {
                     $rv =~ s{ ; }{}xms;
                     $rv eq '[]' ? q{} : $rv;
                 } if $val && ref $val;
-        $buf .= sprintf "%s%s%s\n",
+        push @buf, [
                         $name,
                         (q{ } x (2 + $max - length $name)),
                         defined $val ? $val : q{}
-                        ;
+                    ];
+    }
+    foreach my $row ( sort { lc $a->[0] cmp lc $b->[0] } @buf ) {
+        $buf .= sprintf "%s%s%s\n", @{ $row };
     }
     return $buf;
 }
@@ -903,7 +916,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 #TODO: new accessors
 #wap
@@ -957,7 +970,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION );
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -1141,7 +1154,7 @@ sub _object_ids {
 sub _numify {
     my $self = shift;
     my $v    = shift || return 0;
-    $v    =~ s{
+    $v    =~ s{(
                 pre      |
                 rel      |
                 alpha    |
@@ -1151,7 +1164,14 @@ sub _numify {
                 [ab]\d+  |
                 a\-XXXX  |
                 \+
-                }{}xmsig;
+               )}{}xmsig;
+
+    if ( INSIDE_VERBOSE_TEST ) {
+        if ( $1 ) {
+            Test::More::diag("[DEBUG] _numify: removed '$1' from version string");
+        }
+    }
+
     # Gecko revisions like: "20080915000512" will cause an
     #   integer overflow warning. use bigint?
     local $SIG{__WARN__} = sub {
@@ -1161,7 +1181,27 @@ sub _numify {
     # if version::vpp is used it'll identify 420 as a v-string
     # add a floating point to fool it
     $v .= q{.0} if index($v, q{.}) == NO_IMATCH;
-    my $rv = version->new("$v")->numify;
+    my $rv;
+    eval {
+        $rv = version->new("$v")->numify; 1
+    } or do {
+        my $error = $@ || '[unknown error while parsing version]';
+        if ( INSIDE_UNIT_TEST ) {
+            chomp $error;
+            if ( INSIDE_VERBOSE_TEST ) {
+                Test::More::diag( "[FATAL] _numify: version said: $error" );
+                Test::More::diag(
+                    sprintf "[FATAL] _numify: UA with bogus version (%s) is: %s",
+                                $v, $self->[UA_STRING]
+                );
+                Test::More::diag( '[FATAL] _numify: ' . $self->dumper );
+            }
+            die $error;
+        }
+        else {
+            die $error;
+        }
+    };
     return $rv;
 }
 
@@ -1208,8 +1248,8 @@ generated with an automatic build tool. If you experience problems
 with this version, please install and use the supported standard
 version. This version is B<NOT SUPPORTED>.
 
-This document describes version C<0.20> of C<Parse::HTTP::UserAgent>
-released on C<27 October 2009>.
+This document describes version C<0.21> of C<Parse::HTTP::UserAgent>
+released on C<19 October 2011>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
@@ -1359,12 +1399,12 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2009 Burak Gursoy. All rights reserved.
+Copyright 2009 - 2011 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 
 This library is free software; you can redistribute it and/or modify 
-it under the same terms as Perl itself, either Perl version 5.10.0 or, 
+it under the same terms as Perl itself, either Perl version 5.12.3 or, 
 at your option, any later version of Perl 5 you may have available.
 
 =cut

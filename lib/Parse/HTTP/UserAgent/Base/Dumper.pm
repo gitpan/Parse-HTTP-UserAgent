@@ -5,11 +5,11 @@ use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use Carp qw( croak );
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 sub dumper {
     my($self, @args) = @_;
-    my %opt  = @args % 2 ? () : (
+    my %opt = @args % 2 ? () : (
         type      => 'dumper',
         format    => 'none',
         interpret => 0,
@@ -73,6 +73,7 @@ sub _dumper_dumper {
                         $titles[1],
                         q{-} x $max, q{ } x 2, q{-} x ($max*2);
     require Data::Dumper;
+    my @buf;
     foreach my $id ( @ids ) {
         my $name = $args ? $id->{name} : $id;
         my $val  = $args ? $id->{value} : $self->[ $self->$id() ];
@@ -84,11 +85,14 @@ sub _dumper_dumper {
                     $rv =~ s{ ; }{}xms;
                     $rv eq '[]' ? q{} : $rv;
                 } if $val && ref $val;
-        $buf .= sprintf "%s%s%s\n",
+        push @buf, [
                         $name,
                         (q{ } x (2 + $max - length $name)),
                         defined $val ? $val : q{}
-                        ;
+                    ];
+    }
+    foreach my $row ( sort { lc $a->[0] cmp lc $b->[0] } @buf ) {
+        $buf .= sprintf "%s%s%s\n", @{ $row };
     }
     return $buf;
 }
@@ -105,8 +109,8 @@ Parse::HTTP::UserAgent::Base::Dumper - Base class to dump parsed structure
 
 =head1 DESCRIPTION
 
-This document describes version C<0.20> of C<Parse::HTTP::UserAgent::Base::Dumper>
-released on C<27 October 2009>.
+This document describes version C<0.21> of C<Parse::HTTP::UserAgent::Base::Dumper>
+released on C<19 October 2011>.
 
 The parsed structure can be dumped to a text table for debugging.
 
@@ -127,12 +131,12 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2009 Burak Gursoy. All rights reserved.
+Copyright 2009 - 2011 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 
 This library is free software; you can redistribute it and/or modify 
-it under the same terms as Perl itself, either Perl version 5.10.0 or, 
+it under the same terms as Perl itself, either Perl version 5.12.3 or, 
 at your option, any later version of Perl 5 you may have available.
 
 =cut

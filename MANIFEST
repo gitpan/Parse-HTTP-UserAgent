@@ -26,3 +26,4 @@ monolithic_version/README
 monolithic_version/Parse/HTTP/UserAgent.pm	The monolithic version of Parse::HTTP::UserAgent to ease dropping into web servers. Generated automatically.
 LICENSE
 META.yml
+META.json

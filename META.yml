@@ -1,44 +1,45 @@
 ---
-name: Parse-HTTP-UserAgent
-version: 0.20
+abstract: 'Parser for the User Agent string'
 author:
   - 'Burak Gursoy <burak@cpan.org>'
-abstract: Parser for the User Agent string
-license: perl
-resources:
-  license: http://dev.perl.org/licenses/
-  repository: http://bitbucket.org/burak/cpan-parse-http-useragent/
 build_requires:
   Test::More: 0.40
-requires:
-  version: 0
 configure_requires:
-  Module::Build: 0.35
-provides:
-  Parse::HTTP::UserAgent:
-    file: lib/Parse/HTTP/UserAgent.pm
-    version: 0.20
-  Parse::HTTP::UserAgent::Base::Accessors:
-    file: lib/Parse/HTTP/UserAgent/Base/Accessors.pm
-    version: 0.20
-  Parse::HTTP::UserAgent::Base::Dumper:
-    file: lib/Parse/HTTP/UserAgent/Base/Dumper.pm
-    version: 0.20
-  Parse::HTTP::UserAgent::Base::IS:
-    file: lib/Parse/HTTP/UserAgent/Base/IS.pm
-    version: 0.20
-  Parse::HTTP::UserAgent::Base::Parsers:
-    file: lib/Parse/HTTP/UserAgent/Base/Parsers.pm
-    version: 0.20
-  Parse::HTTP::UserAgent::Constants:
-    file: lib/Parse/HTTP/UserAgent/Constants.pm
-    version: 0.20
+  Module::Build: 0.38
+dynamic_config: 1
+generated_by: 'Module::Build version 0.38, CPAN::Meta::Converter version 2.112621'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Parse-HTTP-UserAgent
 no_index:
   directory:
     - monolithic_version
     - builder
     - t
-generated_by: Module::Build version 0.35
-meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.4.html
-  version: 1.4
+provides:
+  Parse::HTTP::UserAgent:
+    file: lib/Parse/HTTP/UserAgent.pm
+    version: 0.21
+  Parse::HTTP::UserAgent::Base::Accessors:
+    file: lib/Parse/HTTP/UserAgent/Base/Accessors.pm
+    version: 0.21
+  Parse::HTTP::UserAgent::Base::Dumper:
+    file: lib/Parse/HTTP/UserAgent/Base/Dumper.pm
+    version: 0.21
+  Parse::HTTP::UserAgent::Base::IS:
+    file: lib/Parse/HTTP/UserAgent/Base/IS.pm
+    version: 0.21
+  Parse::HTTP::UserAgent::Base::Parsers:
+    file: lib/Parse/HTTP/UserAgent/Base/Parsers.pm
+    version: 0.21
+  Parse::HTTP::UserAgent::Constants:
+    file: lib/Parse/HTTP/UserAgent/Constants.pm
+    version: 0.21
+requires:
+  version: 0
+resources:
+  license: http://dev.perl.org/licenses/
+  repository: http://bitbucket.org/burak/cpan-parse-http-useragent/
+version: 0.21

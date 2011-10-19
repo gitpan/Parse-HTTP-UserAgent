@@ -5,7 +5,7 @@ use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use constant OPERA_FAKER_EXTRA_SIZE => 4;
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
@@ -130,8 +130,8 @@ Parse::HTTP::UserAgent::Base::IS - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.20> of C<Parse::HTTP::UserAgent::Base::IS>
-released on C<27 October 2009>.
+This document describes version C<0.21> of C<Parse::HTTP::UserAgent::Base::IS>
+released on C<19 October 2011>.
 
 Internal module.
 
@@ -145,12 +145,12 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2009 Burak Gursoy. All rights reserved.
+Copyright 2009 - 2011 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 
 This library is free software; you can redistribute it and/or modify 
-it under the same terms as Perl itself, either Perl version 5.10.0 or, 
+it under the same terms as Perl itself, either Perl version 5.12.3 or, 
 at your option, any later version of Perl 5 you may have available.
 
 =cut

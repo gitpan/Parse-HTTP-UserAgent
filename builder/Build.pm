@@ -4,9 +4,9 @@ use vars qw( $VERSION );
 use constant TAINT_SHEBANG => "#!perl -Tw\nuse constant TAINTMODE => 1;\n";
 
 # since this is a builder we don't care about warnings.pm to support older perl
-## no critic (RequireUseWarnings)
+## no critic (RequireUseWarnings, InputOutput::RequireBriefOpen, InputOutput::ProhibitBacktickOperators)
 
-$VERSION = '0.63';
+$VERSION = '0.70';
 
 use File::Find;
 use File::Spec;
@@ -15,12 +15,12 @@ use Carp qw( croak );
 use Build::Spec;
 use base qw( Module::Build );
 use constant RE_VERSION_LINE => qr{
-   \A \$VERSION \s+ = \s+ ["'] (.+?) ['"] ; (.+?) \z
+   \A (our\s+)? \$VERSION \s+ = \s+ ["'] (.+?) ['"] ; (.+?) \z
 }xms;
 use constant RE_POD_LINE => qr{
 \A =head1 \s+ DESCRIPTION \s+ \z
 }xms;
-use constant VTEMP  => q{$VERSION = '%s';};
+use constant VTEMP  => q{%s$VERSION = '%s';};
 use constant MONTHS => qw(
    January February March     April   May      June
    July    August   September October November December
@@ -34,6 +34,8 @@ use constant DEFAULTS => qw(
    create_license   1
    sign             0
 );
+use constant YEAR_ADD  => 1900;
+use constant YEAR_SLOT =>    5;
 
 __PACKAGE__->add_property( build_monolith      => 0  );
 __PACKAGE__->add_property( change_versions     => 0  );
@@ -42,6 +44,7 @@ __PACKAGE__->add_property( monolith_add_to_top => [] );
 __PACKAGE__->add_property( taint_mode_tests    => 0  );
 __PACKAGE__->add_property( add_pod_author_copyright_license => 0 );
 __PACKAGE__->add_property( copyright_first_year => 0 );
+__PACKAGE__->add_property( initialization_hook  => q() );
 
 sub new {
    my $class = shift;
@@ -59,6 +62,11 @@ sub new {
 sub create_build_script {
    my $self = shift;
    $self->_add_vanilla_makefile_pl if $self->vanilla_makefile_pl;
+   my $hook = $self->initialization_hook;
+   if ( $hook ) {
+      my $eok = eval $hook;
+      croak "Error compiling initialization_hook: $@" if $@;
+   }
    return $self->SUPER::create_build_script( @_ );
 }
 
@@ -72,7 +80,7 @@ sub mytrim {
    return $s;
 }
 
-sub ACTION_dist {
+sub ACTION_dist { ## no critic (NamingConventions::Capitalization)
    my $self = shift;
    my $msg  = sprintf q{RUNNING 'dist' Action from subclass %s v%s},
                       ref($self),
@@ -82,7 +90,7 @@ sub ACTION_dist {
    find {
       wanted => sub {
          my $file = $_;
-         return if $file !~ m{ \. pm \z }xms;
+         return if $file !~ m{ [.] pm \z }xms;
          $file = File::Spec->catfile( $file );
          push @modules, $file;
          warn "FOUND Module: $file\n";
@@ -92,18 +100,18 @@ sub ACTION_dist {
    $self->_create_taint_mode_tests      if $self->taint_mode_tests;
    $self->_change_versions( \@modules ) if $self->change_versions;
    $self->_build_monolith(  \@modules ) if $self->build_monolith;
-   $self->SUPER::ACTION_dist( @_ );
+   return $self->SUPER::ACTION_dist( @_ );
 }
 
 sub _create_taint_mode_tests {
    my $self   = shift;
-   require File::Basename;
    my @tests  = glob 't/*.t';
-   my @taints = map {
-                  my $t = File::Basename::basename( $_ );
-                  my($num,$rest) = split /\-/xms, $t, 2;
-                  "t/$num-taint-mode-$rest";
-               }  @tests;
+   my @taints;
+   require File::Basename;
+   foreach my $t ( @tests ) {
+      my($num,$rest) = split /\-/xms, File::Basename::basename( $t ), 2;
+      push @taints, "t/$num-taint-mode-$rest";
+   }
 
    for my $i ( 0..$#tests ) {
       next if $tests[$i] =~ m{ pod[.]t           \z }xms;
@@ -125,13 +133,32 @@ sub _create_taint_mode_tests {
    return;
 }
 
-sub _change_versions {
-   my $self  = shift;
-   my $files = shift;
-   my $dver  = $self->dist_version;
-
+sub _change_versions_pod {
+   my($self, $mod) = @_;
+   my $dver = $self->dist_version;
    my(undef, undef, undef, $mday, $mon, $year) = localtime time;
-   my $date = join q{ }, $mday, [MONTHS]->[$mon], $year + 1900;
+   my $date = join q{ }, $mday, [MONTHS]->[$mon], $year + YEAR_ADD;
+
+   my $ns  = $mod;
+      $ns  =~ s{ [\\/]     }{::}xmsg;
+      $ns  =~ s{ \A lib :: }{}xms;
+      $ns  =~ s{ [.] pm \z }{}xms;
+   my $pod = "\nThis document describes version C<$dver> of C<$ns>\n"
+           . "released on C<$date>.\n"
+           ;
+
+   if ( $dver =~ m{[_]}xms ) {
+      $pod .= "\nB<WARNING>: This version of the module is part of a\n"
+           .  "developer (beta) release of the distribution and it is\n"
+           .  "not suitable for production use.\n";
+   }
+
+   return $pod;
+}
+
+sub _change_versions {
+   my($self, $files) = @_;
+   my $dver = $self->dist_version;
 
    warn "CHANGING VERSIONS\n";
    warn "\tDISTRO Version: $dver\n";
@@ -144,48 +171,17 @@ sub _change_versions {
 
       CHANGE_VERSION: while ( my $line = readline $RO_FH ) {
          if ( $line =~ RE_VERSION_LINE ) {
-            my $oldv      = $1;
-            my $remainder = $2;
+            my $prefix    = $1 || q{};
+            my $oldv      = $2;
+            my $remainder = $3;
             warn "\tCHANGED Version from $oldv to $dver\n";
-            printf {$W_FH} VTEMP . $remainder, $dver;
+            printf {$W_FH} VTEMP . $remainder, $prefix, $dver;
             last CHANGE_VERSION;
          }
-         print $W_FH $line;
+         print {$W_FH} $line or croak "Unable to print to FH: $!";
       }
 
-      my $ns  = $mod;
-         $ns  =~ s{ [\\/]     }{::}xmsg;
-         $ns  =~ s{ \A lib :: }{}xms;
-         $ns  =~ s{ \. pm \z  }{}xms;
-      my $pod = "\nThis document describes version C<$dver> of C<$ns>\n"
-              . "released on C<$date>.\n"
-              ;
-
-      if ( $dver =~ m{[_]}xms ) {
-         $pod .= "\nB<WARNING>: This version of the module is part of a\n"
-              .  "developer (beta) release of the distribution and it is\n"
-              .  "not suitable for production use.\n";
-      }
-
-      my $acl = $self->add_pod_author_copyright_license;
-      my $acl_buf;
-
-      CHANGE_POD: while ( my $line = readline $RO_FH ) {
-         if ( $acl && $line =~ m{ \A =cut }xms ) {
-            $acl_buf = $line; # buffer the last line
-            last;
-         }
-         print $W_FH $line;
-         print $W_FH $pod if $line =~ RE_POD_LINE;
-      }
-
-      if ( $acl && defined $acl_buf ) {
-         warn "\tADDING AUTHOR COPYRIGHT LICENSE TO POD\n";
-         print $W_FH $self->_pod_author_copyright_license, $acl_buf;
-         while ( my $line = readline $RO_FH ) {
-            print $W_FH $line;
-         }
-      }
+      $self->_change_pod( $RO_FH, $W_FH, $mod );
 
       close $RO_FH or croak "Can not close file($mod): $!";
       close $W_FH  or croak "Can not close file($new): $!";
@@ -193,6 +189,35 @@ sub _change_versions {
       unlink($mod) || croak "Can not remove original module($mod): $!";
       rename( $new, $mod ) || croak "Can not rename( $new, $mod ): $!";
       warn "\tRENAME Successful!\n";
+   }
+
+   return;
+}
+
+sub _change_pod {
+   my($self, $RO_FH, $W_FH, $mod) = @_;
+   my $acl = $self->add_pod_author_copyright_license;
+   my $acl_buf;
+
+   CHANGE_POD: while ( my $line = readline $RO_FH ) {
+      if ( $acl && $line =~ m{ \A =cut }xms ) {
+         $acl_buf = $line; # buffer the last line
+         last;
+      }
+      print {$W_FH} $line or croak "Unable to print to FH: $!";
+      if ( $line =~ RE_POD_LINE ) {
+         print {$W_FH} $self->_change_versions_pod( $mod )
+             or croak "Unable to print to FH: $!";
+      }
+   }
+
+   if ( $acl && defined $acl_buf ) {
+      warn "\tADDING AUTHOR COPYRIGHT LICENSE TO POD\n";
+      print {$W_FH} $self->_pod_author_copyright_license, $acl_buf
+         or croak "Unable to print to FH: $!";
+      while ( my $line = readline $RO_FH ) {
+         print {$W_FH} $line or croak "Unable to print to FH: $!";
+      }
    }
 
    return;
@@ -212,11 +237,6 @@ sub _build_monolith {
    mkpath $dir;
 
    warn "STARTING TO BUILD MONOLITH\n";
-   open my $MONO  , '>:raw', $mono   or die "Can not open file($mono): $!";
-   open my $BUFFER, '>:raw', $buffer or die "Can not open file($buffer): $!";
-
-   my %add_pod;
-   my $POD = '';
 
    my @files;
    my $c;
@@ -230,100 +250,29 @@ sub _build_monolith {
    }
    push @files, $c;
 
-   MONO_FILES: foreach my $mod ( reverse @files ) {
-      my(undef, undef, $base) = File::Spec->splitpath($mod);
-      warn "\tMERGE $mod\n";
-      my $is_eof = 0;
-      my $is_pre = $self->_monolith_add_to_top( $base );
-      open my $RO_FH, '<:raw', $mod or die "Can not open file($mod): $!";
-      MONO_MERGE: while ( my $line = readline $RO_FH ) {
-         #print $MONO "{\n" if ! $curly_top{ $mod }++;
-         my $chomped  = $line;
-         chomp $chomped;
-         $is_eof++ if $chomped eq '1;';
-         my $no_pod   = $is_eof && $base ne $mono_file;
-         $no_pod ? last MONO_MERGE
-                 : do {
-                     warn "\tADD POD FROM $mod\n"
-                        if $is_eof && ! $add_pod{ $mod }++;
-                  };
-         $is_eof ? do { $POD .= $line; }
-                 : do {
-                     print { $is_pre ? $BUFFER : $MONO } $line;
-                  };
-      }
-      close $RO_FH;
-      #print $MONO "}\n";
-   }
-   close $MONO;
-   close $BUFFER;
+   my $POD = $self->_monolith_merge(\@files, $mono_file, $mono, $buffer);
 
-   ADD_PRE: {
-      require File::Copy;
-      File::Copy::copy( $mono, $copy ) or croak "Copy failed: $!";
-      my @inc_files = map {
-                        my $f = $_;
-                        $f =~ s{    \\   }{/}xmsg;
-                        $f =~ s{ \A lib/ }{}xms;
-                        $f;
-                     } @{ $files };
-
-      my @packages = map {
-                        my $m = $_;
-                        $m =~ s{ [.]pm \z }{}xms;
-                        $m =~ s{  /       }{::}xmsg;
-                        $m;
-                     } @inc_files;
-
-      open my $W,    '>:raw', $mono or croak "Can not open file($mono): $!";
-
-      printf {$W} q/BEGIN { $INC{$_} = 1 for qw(%s); }/, join q{ }, @inc_files
-              or croak "Can not print to MONO file: $!";
-      print  {$W} "\n" or croak "Can not print to MONO file: $!";
-
-      foreach my $name ( @packages ) {
-         print {$W} qq/package $name;\nsub ________monolith {}\n/
-               or croak "Can not print to MONO file: $!";
-      }
-
-      open my $TOP,  '<:raw', $buffer or croak "Can not open file($buffer): $!";
-      while ( my $line = <$TOP> ) {
-         print {$W} $line or croak "Can not print to BUFFER file: $!";
-      }
-      close $TOP or croak 'Can not close BUFFER file';
-
-      open my $COPY, '<:raw', $copy   or croak "Can not open file($copy): $!";
-      while ( my $line = <$COPY> ) {
-         print {$W} $line or croak "Can not print to COPY file: $!";
-      }
-      close $COPY or croak "Can not close COPY file: $!";
-
-      close  $W or croak "Can not close MONO file: $!";
-   }
+   $self->_monolith_add_pre( $mono, $copy, \@files, $buffer );
 
    if ( $POD ) {
       open my $MONOX, '>>:raw', $mono or croak "Can not open file($mono): $!";
-      foreach my $line ( split /\n/, $POD ) {
-         print $MONOX $line, "\n";
-         print $MONOX $self->_monolith_pod_warning if "$line\n" =~ RE_POD_LINE;
+      foreach my $line ( split /\n/xms, $POD ) {
+         print {$MONOX} $line, "\n" or croak "Unable to print to FH: $!";
+         if ( "$line\n" =~ RE_POD_LINE ) {
+            print {$MONOX} $self->_monolith_pod_warning
+               or croak "Unable to print to FH: $!";
+         }
       }
-      close $MONOX;
+      close $MONOX or croak "Unable to close FH: $!";;
    }
 
-   unlink $buffer or die "Can not delete $buffer $!";
-   unlink $copy   or die "Can not delete $copy $!";
+   unlink $buffer or croak "Can not delete $buffer $!";
+   unlink $copy   or croak "Can not delete $copy $!";
 
-   print "\t";
+   print "\t" or croak "Unable to print to STDOUT: $!";
    system( $^X, '-wc', $mono ) && die "$mono does not compile!\n";
 
-   PROVE: {
-      warn "\tTESTING MONOLITH\n";
-      local $ENV{AUTHOR_TESTING_MONOLITH_BUILD} = 1;
-      my @output = qx(prove -Imonolithic_version);
-      print "\t$_" for @output;
-      chomp(my $result = pop @output);
-      die MONOLITH_TEST_FAIL if $result ne 'Result: PASS';
-   }
+   $self->_monolith_prove();
 
    warn "\tADD README\n";
    $self->_write_file('>', $readme, $self->_monolith_readme);
@@ -340,6 +289,133 @@ sub _build_monolith {
    return;
 }
 
+sub _monolith_merge {
+   my($self, $files, $mono_file, $mono, $buffer) = @_;
+   my %add_pod;
+   my $POD = q{};
+
+   open my $MONO  , '>:raw', $mono   or croak "Can not open file($mono): $!";
+   open my $BUFFER, '>:raw', $buffer or croak "Can not open file($buffer): $!";
+
+   MONO_FILES: foreach my $mod ( reverse @{ $files } ) {
+      my(undef, undef, $base) = File::Spec->splitpath($mod);
+      warn "\tMERGE $mod\n";
+      my $is_eof = 0;
+      my $is_pre = $self->_monolith_add_to_top( $base );
+      open my $RO_FH, '<:raw', $mod or croak "Can not open file($mod): $!";
+      MONO_MERGE: while ( my $line = readline $RO_FH ) {
+         #print $MONO "{\n" if ! $curly_top{ $mod }++;
+         my $chomped  = $line;
+         chomp $chomped;
+         $is_eof++ if $chomped eq '1;';
+         my $no_pod   = $is_eof && $base ne $mono_file;
+         $no_pod ? last MONO_MERGE
+                 : do {
+                     warn "\tADD POD FROM $mod\n"
+                        if $is_eof && ! $add_pod{ $mod }++;
+                  };
+         $is_eof ? do { $POD .= $line; }
+                 : do {
+                     print { $is_pre ? $BUFFER : $MONO } $line
+                        or croak "Unable to print to FH: $!";
+                  };
+      }
+      close $RO_FH or croak "Unable to close FH: $!";
+      #print $MONO "}\n";
+   }
+
+   close $MONO   or croak "Unable to close FH: $!";
+   close $BUFFER or croak "Unable to close FH: $!";
+
+   return $POD;
+}
+
+sub _monolith_prove {
+   my($self) = @_;
+
+   warn "\tTESTING MONOLITH\n";
+   local $ENV{AUTHOR_TESTING_MONOLITH_BUILD} = 1;
+   require File::Basename;
+   require File::Spec;
+   my $pbase = File::Basename::dirname( $^X );
+
+   my $prove;
+   find {
+      wanted => sub {
+         my $file = $_;
+         return if $file !~ m{ prove }xms;
+         $prove = $file;
+      },
+      no_chdir => 1,
+   }, $pbase;
+
+   if ( ! $prove || ! -e $prove ) {
+       croak "No `prove command found related to $^X`";
+   }
+
+   warn "\n\tFOUND `prove` at $prove\n\n";
+
+   my @output = qx($prove -Imonolithic_version);
+   for my $line ( @output ) {
+      print "\t$line" or croak "Unable to print to STDOUT: $!";
+   }
+   chomp(my $result = pop @output);
+   croak MONOLITH_TEST_FAIL if $result ne 'Result: PASS';
+   return;
+
+}
+
+sub _monolith_add_pre {
+   my($self, $mono, $copy, $files, $buffer) = @_;
+   require File::Copy;
+   File::Copy::copy( $mono, $copy ) or croak "Copy failed: $!";
+
+   my $clean_file = sub {
+      my $f = shift;
+      $f =~ s{    \\   }{/}xmsg;
+      $f =~ s{ \A lib/ }{}xms;
+      return $f;
+   };
+
+   my $clean_module = sub {
+      my $m = shift;
+      $m =~ s{ [.]pm \z }{}xms;
+      $m =~ s{  /       }{::}xmsg;
+      return $m;
+   };
+
+   my @inc_files = map { $clean_file->(   $_ ) } @{ $files };
+   my @packages  = map { $clean_module->( $_ ) } @inc_files;
+
+   open my $W, '>:raw', $mono or croak "Can not open file($mono): $!";
+
+   printf {$W} q/BEGIN { $INC{$_} = 1 for qw(%s); }/, join q{ }, @inc_files
+           or croak "Can not print to MONO file: $!";
+   print  {$W} "\n" or croak "Can not print to MONO file: $!";
+
+   foreach my $name ( @packages ) {
+      print {$W} qq/package $name;\nsub ________monolith {}\n/
+            or croak "Can not print to MONO file: $!";
+   }
+
+   open my $TOP,  '<:raw', $buffer or croak "Can not open file($buffer): $!";
+   while ( my $line = <$TOP> ) {
+      print {$W} $line or croak "Can not print to BUFFER file: $!";
+   }
+   close $TOP or croak 'Can not close BUFFER file';
+
+   open my $COPY, '<:raw', $copy or croak "Can not open file($copy): $!";
+   while ( my $line = <$COPY> ) {
+      print {$W} $line or croak "Can not print to COPY file: $!";
+   }
+
+   close $COPY or croak "Can not close COPY file: $!";
+   close $W    or croak "Can not close MONO file: $!";
+
+   return;
+
+}
+
 sub _write_file {
    my($self, $mode, $file, @data) = @_;
    $mode = $mode . ':raw';
@@ -354,8 +430,8 @@ sub _write_file {
 sub _monolith_add_to_top {
    my $self = shift;
    my $base = shift;
-   my $list = $self->monolith_add_to_top || die "monolith_add_to_top not set";
-   die "monolith_add_to_top is not an ARRAY" if ref($list) ne 'ARRAY';
+   my $list = $self->monolith_add_to_top || croak 'monolith_add_to_top not set';
+   croak 'monolith_add_to_top is not an ARRAY' if ref $list ne 'ARRAY';
    foreach my $test ( @{ $list } ) {
       return 1 if $test eq $base;
    }
@@ -392,7 +468,21 @@ sub _add_vanilla_makefile_pl {
 }
 
 sub _vanilla_makefile_pl {
-   <<'VANILLA_MAKEFILE_PL';
+   my $self = shift;
+   my $hook = $self->initialization_hook;
+   my $extra = ! $hook ? q() : <<'HOOK';
+
+my $eok = eval <<'THIS_IS_SOME_IDENTIFIER';
+<%HOOK%>
+THIS_IS_SOME_IDENTIFIER
+
+die "Error compiling initialization_hook: $@\n" if $@;
+
+HOOK
+
+   $extra =~ s{<%HOOK%>}{$hook}xmsg if $extra;
+
+   my $code = <<'VANILLA_MAKEFILE_PL';
 #!/usr/bin/env perl
 use strict;
 use ExtUtils::MakeMaker;
@@ -400,6 +490,8 @@ use lib qw( builder );
 use Build::Spec qw( mm_spec );
 
 my %spec = mm_spec;
+
+<%EXTRA%>
 
 WriteMakefile(
     NAME         => $spec{module_name},
@@ -409,9 +501,12 @@ WriteMakefile(
     ($] >= 5.005 ? (
     AUTHOR       => $spec{dist_author},
     ABSTRACT     => $spec{ABSTRACT},
+    EXE_FILES    => $spec{EXE_FILES},
     ) : ()),
 );
 VANILLA_MAKEFILE_PL
+   $code =~ s{<%EXTRA%>}{$extra}xmsg;
+   return $code;
 }
 
 sub _pod_author_copyright_license {
@@ -421,9 +516,9 @@ sub _pod_author_copyright_license {
    $author = $self->mytrim( $author );
    $email  = $self->mytrim( $email );
    my $cfy = $self->copyright_first_year;
-   my $year = (localtime time)[5] + 1900;
+   my $year = (localtime time)[YEAR_SLOT] + YEAR_ADD;
    $year = "$cfy - $year" if $cfy && $cfy != $year && $cfy < $year;
-   my $perl = sprintf( '%vd', $^V );
+   my $perl = sprintf '%vd', $^V;
    return <<"POD";
 =head1 AUTHOR
 

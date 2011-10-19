@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION );
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -187,7 +187,7 @@ sub _object_ids {
 sub _numify {
     my $self = shift;
     my $v    = shift || return 0;
-    $v    =~ s{
+    $v    =~ s{(
                 pre      |
                 rel      |
                 alpha    |
@@ -197,7 +197,14 @@ sub _numify {
                 [ab]\d+  |
                 a\-XXXX  |
                 \+
-                }{}xmsig;
+               )}{}xmsig;
+
+    if ( INSIDE_VERBOSE_TEST ) {
+        if ( $1 ) {
+            Test::More::diag("[DEBUG] _numify: removed '$1' from version string");
+        }
+    }
+
     # Gecko revisions like: "20080915000512" will cause an
     #   integer overflow warning. use bigint?
     local $SIG{__WARN__} = sub {
@@ -207,7 +214,27 @@ sub _numify {
     # if version::vpp is used it'll identify 420 as a v-string
     # add a floating point to fool it
     $v .= q{.0} if index($v, q{.}) == NO_IMATCH;
-    my $rv = version->new("$v")->numify;
+    my $rv;
+    eval {
+        $rv = version->new("$v")->numify; 1
+    } or do {
+        my $error = $@ || '[unknown error while parsing version]';
+        if ( INSIDE_UNIT_TEST ) {
+            chomp $error;
+            if ( INSIDE_VERBOSE_TEST ) {
+                Test::More::diag( "[FATAL] _numify: version said: $error" );
+                Test::More::diag(
+                    sprintf "[FATAL] _numify: UA with bogus version (%s) is: %s",
+                                $v, $self->[UA_STRING]
+                );
+                Test::More::diag( '[FATAL] _numify: ' . $self->dumper );
+            }
+            die $error;
+        }
+        else {
+            die $error;
+        }
+    };
     return $rv;
 }
 
@@ -249,8 +276,8 @@ Parse::HTTP::UserAgent - Parser for the User Agent string
 
 =head1 DESCRIPTION
 
-This document describes version C<0.20> of C<Parse::HTTP::UserAgent>
-released on C<27 October 2009>.
+This document describes version C<0.21> of C<Parse::HTTP::UserAgent>
+released on C<19 October 2011>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
@@ -400,12 +427,12 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2009 Burak Gursoy. All rights reserved.
+Copyright 2009 - 2011 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 
 This library is free software; you can redistribute it and/or modify 
-it under the same terms as Perl itself, either Perl version 5.10.0 or, 
+it under the same terms as Perl itself, either Perl version 5.12.3 or, 
 at your option, any later version of Perl 5 you may have available.
 
 =cut

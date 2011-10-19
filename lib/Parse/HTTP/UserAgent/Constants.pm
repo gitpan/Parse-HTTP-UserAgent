@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 use constant MINUS_ONE           => -1;
 use constant NO_IMATCH           => -1; # for index()
@@ -40,6 +40,8 @@ use constant TK_NAME             => 0;
 use constant TK_ORIGINAL_VERSION => 1;
 use constant TK_VERSION          => 2;
 
+use constant INSIDE_UNIT_TEST    => $ENV{PARSE_HTTP_USERAGENT_TEST_SUITE};
+use constant INSIDE_VERBOSE_TEST => INSIDE_UNIT_TEST && $ENV{HARNESS_IS_VERBOSE};
 use constant RE_FIREFOX_NAMES    => qr{Firefox|Iceweasel|Firebird|Phoenix }xms;
 use constant RE_DOTNET           => qr{ \A [.]NET \s+ CLR \s+ (.+?) \z    }xms;
 use constant RE_WINDOWS_OS       => qr{ \A Win(dows|NT|[0-9]+)?           }xmsi;
@@ -71,6 +73,7 @@ use constant LIST_ROBOTS         => qw(
     Googlebot
     Baiduspider+
     msnbot
+    bingbot
 ), 'Yahoo! Slurp';
 
 use base qw( Exporter );
@@ -137,6 +140,8 @@ BEGIN {
         etc => [qw(
             NO_IMATCH
             LAST_ELEMENT
+            INSIDE_UNIT_TEST
+            INSIDE_VERBOSE_TEST
         )],
     );
 
@@ -156,8 +161,8 @@ Parse::HTTP::UserAgent::Constants - Various constants
 
 =head1 DESCRIPTION
 
-This document describes version C<0.20> of C<Parse::HTTP::UserAgent::Constants>
-released on C<27 October 2009>.
+This document describes version C<0.21> of C<Parse::HTTP::UserAgent::Constants>
+released on C<19 October 2011>.
 
 Internal module
 
@@ -171,12 +176,12 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2009 Burak Gursoy. All rights reserved.
+Copyright 2009 - 2011 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 
 This library is free software; you can redistribute it and/or modify 
-it under the same terms as Perl itself, either Perl version 5.10.0 or, 
+it under the same terms as Perl itself, either Perl version 5.12.3 or, 
 at your option, any later version of Perl 5 you may have available.
 
 =cut
