@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.21';
+$VERSION = '0.30';
 
 use constant MINUS_ONE           => -1;
 use constant NO_IMATCH           => -1; # for index()
@@ -26,7 +26,8 @@ use constant UA_STRENGTH         => ++$OID; # [MSIE] List of .NET CLR versions
 use constant UA_MOZILLA          => ++$OID; # [Firefox] Mozilla revision
 use constant UA_ROBOT            => ++$OID; # Is this a robot?
 use constant UA_WAP              => ++$OID; # unimplemented
-use constant UA_MOBILE           => ++$OID; # unimplemented
+use constant UA_MOBILE           => ++$OID; # partially implemented
+use constant UA_TABLET           => ++$OID; # partially implemented
 use constant UA_PARSER           => ++$OID; # the parser name
 use constant UA_DEVICE           => ++$OID; # the name of the mobile device
 use constant UA_ORIGINAL_NAME    => ++$OID; # original name if this is some variation
@@ -100,6 +101,7 @@ BEGIN {
             UA_ROBOT
             UA_WAP
             UA_MOBILE
+            UA_TABLET
             UA_PARSER
             UA_DEVICE
             UA_ORIGINAL_NAME
@@ -161,8 +163,8 @@ Parse::HTTP::UserAgent::Constants - Various constants
 
 =head1 DESCRIPTION
 
-This document describes version C<0.21> of C<Parse::HTTP::UserAgent::Constants>
-released on C<19 October 2011>.
+This document describes version C<0.30> of C<Parse::HTTP::UserAgent::Constants>
+released on C<27 October 2011>.
 
 Internal module
 

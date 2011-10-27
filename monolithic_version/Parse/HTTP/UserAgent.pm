@@ -16,7 +16,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.21';
+$VERSION = '0.30';
 
 use constant MINUS_ONE           => -1;
 use constant NO_IMATCH           => -1; # for index()
@@ -39,7 +39,8 @@ use constant UA_STRENGTH         => ++$OID; # [MSIE] List of .NET CLR versions
 use constant UA_MOZILLA          => ++$OID; # [Firefox] Mozilla revision
 use constant UA_ROBOT            => ++$OID; # Is this a robot?
 use constant UA_WAP              => ++$OID; # unimplemented
-use constant UA_MOBILE           => ++$OID; # unimplemented
+use constant UA_MOBILE           => ++$OID; # partially implemented
+use constant UA_TABLET           => ++$OID; # partially implemented
 use constant UA_PARSER           => ++$OID; # the parser name
 use constant UA_DEVICE           => ++$OID; # the name of the mobile device
 use constant UA_ORIGINAL_NAME    => ++$OID; # original name if this is some variation
@@ -113,6 +114,7 @@ BEGIN {
             UA_ROBOT
             UA_WAP
             UA_MOBILE
+            UA_TABLET
             UA_PARSER
             UA_DEVICE
             UA_ORIGINAL_NAME
@@ -172,7 +174,7 @@ use constant ERROR_MAXTHON_MSIE    => 'Unable to extract MSIE from Maxthon UA-st
 use constant OPERA9                => 9;
 use constant OPERA_TK_LENGTH       => 5;
 
-$VERSION = '0.21';
+$VERSION = '0.30';
 
 sub _extract_dotnet {
     my($self, @args) = @_;
@@ -317,7 +319,12 @@ sub _parse_safari {
                             ? pop   @{ $thing }
                             : shift @{ $thing }
                             ;
-    if ( $thing->[0] && $thing->[0] eq 'iPhone' ) {
+    if ( $self->[UA_OS] && lc $self->[UA_OS] eq 'macintosh' ) {
+        $self->[UA_OS]   = $self->[UA_LANG];
+        $self->[UA_LANG] = undef;
+    }
+
+    if ( $thing->[0] && lc $thing->[0] eq 'iphone' ) {
         $self->[UA_DEVICE]  = shift @{$thing};
     }
     $self->[UA_EXTRAS]      = [ @{$thing}, @others ];
@@ -341,6 +348,59 @@ sub _parse_chrome {
     my($name, $version)      = split RE_SLASH, $chrome;
     $self->[UA_NAME]         = $name;
     $self->[UA_VERSION_RAW]  = $version;
+    return 1;
+}
+
+sub _parse_android {
+    my($self, $moz, $thing, $extra, @others) = @_;
+    (undef, @{$self}[UA_STRENGTH, UA_OS, UA_LANG, UA_DEVICE]) = @{ $thing };
+    $self->[UA_TOOLKIT] = [ split RE_SLASH, $extra->[0] ] if $extra;
+    my(@extras, $is_phone);
+
+    my @junkions = map { split m{\s+}xms } @others;
+    foreach my $junk ( @junkions ) {
+        if ( $junk eq 'Mobile' ) {
+            $is_phone = 1;
+            next;
+        }
+        if ( index( $junk, 'Version' ) != NO_IMATCH ) {
+            my(undef, $v) = split RE_SLASH, $junk;
+            $self->[UA_VERSION_RAW] = $v; # looks_like_number?
+            next;
+        }
+        push @extras, $junk;
+    }
+
+    if ( $self->[UA_DEVICE] ) {
+        my @build = split RE_WHITESPACE, $self->[UA_DEVICE];
+        my @btest;
+        while ( @build && index($build[-1], 'Build') == NO_IMATCH ) {
+            unshift @btest, pop @build;
+        }
+        unshift @btest, pop @build if @build;
+        my $device = @build ? join ' ', @build : undef;
+        my $build  = shift @btest;
+
+        if ( $device && $build ) {
+            $build =~ s{ Build/ }{}xms;
+            my $os = $self->[UA_OS] || 'Android';
+            $self->[UA_DEVICE] = $device;
+            $self->[UA_OS]     = "$os ($build)";
+            if ( @btest ) {
+                $self->[UA_TOOLKIT] = [ split RE_SLASH, $btest[0] ];
+            }
+        }
+    }
+
+    if ( @extras >= 3 && $extras[0] && $extras[0] eq 'KHTML,') {
+        unshift @extras, join ' ', map { shift @extras } 1..3;
+    }
+
+    $self->[UA_NAME]   = 'Android';
+    $self->[UA_MOBILE] = 1;
+    $self->[UA_TABLET] = $is_phone ? undef : 1;
+    $self->[UA_EXTRAS] = [ @extras ];
+
     return 1;
 }
 
@@ -417,8 +477,17 @@ sub _parse_mozilla_family {
 
     if ( @{$thing} && index($thing->[LAST_ELEMENT], 'rv:') != NO_IMATCH ) {
         $self->[UA_MOZILLA]  = pop @{ $thing };
-        $self->[UA_LANG]     = pop @{ $thing };
-        $self->[UA_OS]       = pop @{ $thing };
+        if ( @{ $thing } <= 3 ) {
+            $self->[UA_OS] = shift @{ $thing };
+            if ( $self->[UA_OS] && $self->[UA_OS] eq 'Macintosh' ) {
+                $self->[UA_OS] = shift @{ $thing };
+            }
+            $self->[UA_LANG] = pop @{ $thing } if @{ $thing };
+        }
+        else {
+            $self->[UA_LANG]     = pop @{ $thing };
+            $self->[UA_OS]       = pop @{ $thing };
+        }
     }
 
     $self->[UA_EXTRAS] = [ @{ $thing }, @extras ];
@@ -698,7 +767,7 @@ use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use constant OPERA_FAKER_EXTRA_SIZE => 4;
 
-$VERSION = '0.21';
+$VERSION = '0.30';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
@@ -720,6 +789,7 @@ sub _is_safari {
     my $str = $self->[UA_STRING];
     # epiphany?
     return                index( $str                   , 'Chrome'       ) != NO_IMATCH ? 0 # faker
+          :               index( $str                   , 'Android'      ) != NO_IMATCH ? 0 # faker
           :    $extra  && index( $extra->[0]            , 'AppleWebKit'  ) != NO_IMATCH ? 1
           : @{$others} && index( $others->[LAST_ELEMENT], 'Safari'       ) != NO_IMATCH ? 1
           :                                                                     0
@@ -735,6 +805,13 @@ sub _is_chrome {
     return              index( $chrome    , 'Chrome'     ) != NO_IMATCH &&
                         index( $safari    , 'Safari'     ) != NO_IMATCH &&
            ( $extra  && index( $extra->[0], 'AppleWebKit') != NO_IMATCH);
+}
+
+sub _is_android {
+    my($self, $thing, $others) = @_;
+    my $has_android = grep { index( lc $_, 'android' ) != NO_IMATCH  } @{ $thing  };
+    my $has_safari  = grep { index( lc $_, 'safari'  ) != NO_IMATCH  } @{ $others };
+    return $has_android && $has_safari;
 }
 
 sub _is_ff {
@@ -818,7 +895,7 @@ use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use Carp qw( croak );
 
-$VERSION = '0.21';
+$VERSION = '0.30';
 
 sub dumper {
     my($self, @args) = @_;
@@ -916,23 +993,51 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.21';
+$VERSION = '0.30';
 
 #TODO: new accessors
 #wap
 #mobile
 #device
 
-sub name             { return shift->[UA_NAME]             || q{} }
-sub unknown          { return shift->[UA_UNKNOWN]          || q{} }
-sub generic          { return shift->[UA_GENERIC]          || q{} }
-sub os               { return shift->[UA_OS]               || q{} }
-sub lang             { return shift->[UA_LANG]             || q{} }
-sub strength         { return shift->[UA_STRENGTH]         || q{} }
-sub parser           { return shift->[UA_PARSER]           || q{} }
-sub original_name    { return shift->[UA_ORIGINAL_NAME]    || q{} }
-sub original_version { return shift->[UA_ORIGINAL_VERSION] || q{} }
-sub robot            { return shift->[UA_ROBOT]            ||   0 }
+BEGIN {
+    my @simple = qw(
+        name
+        unknown
+        generic
+        os
+        lang
+        strength
+        parser
+        original_name
+        original_version
+        robot
+    );
+
+    my @multi = qw(
+        mozilla
+        extras
+        dotnet
+    );
+
+    no strict qw(refs); ## no critic (TestingAndDebugging::ProhibitNoStrict)
+    foreach my $name ( @simple ) {
+        my $id = 'UA_' . uc $name;
+        $id = __PACKAGE__->$id();
+        *{ $name } = sub { return shift->[$id] || q{} };
+    }
+
+    foreach my $name ( @multi ) {
+        my $id = 'UA_' . uc $name;
+        $id = __PACKAGE__->$id();
+        *{ $name } = sub {
+            my $self = shift;
+            return +() if ! $self->[ $id ];
+            my @rv = @{ $self->[ $id ] };
+            return wantarray ? @rv : $rv[0];
+        };
+    }
+}
 
 sub version {
     my $self = shift;
@@ -940,29 +1045,37 @@ sub version {
     return $self->[ $type eq 'raw' ? UA_VERSION_RAW : UA_VERSION ] || 0;
 }
 
-sub mozilla {
-    my $self = shift;
-    return +() if ! $self->[UA_MOZILLA];
-    my @rv = @{ $self->[UA_MOZILLA] };
-    return wantarray ? @rv : $rv[0];
-}
-
 sub toolkit {
     my $self = shift;
-    return +() if ! $self->[UA_TOOLKIT];
-    return @{ $self->[UA_TOOLKIT] };
+    return Parse::HTTP::UserAgent::Base::Accessors::toolkit->new(
+                $self->[UA_TOOLKIT]
+            );
 }
 
-sub extras {
-    my $self = shift;
-    return +() if ! $self->[UA_EXTRAS];
-    return @{ $self->[UA_EXTRAS] };
+package Parse::HTTP::UserAgent::Base::Accessors::toolkit;
+use strict;
+use warnings;
+use overload '""',    => 'name',
+             '0+',    => 'version',
+             fallback => 1,
+;
+use constant ID_NAME        => 0;
+use constant ID_VERSION_RAW => 1;
+use constant ID_VERSION     => 2;
+
+sub new {
+    my($class, $tk) = @_;
+    return bless [ $tk ? @{ $tk } : (undef) x 3 ], $class;
 }
 
-sub dotnet {
+sub name {
+    return shift->[ID_NAME];
+}
+
+sub version {
     my $self = shift;
-    return +() if ! $self->[UA_DOTNET];
-    return @{ $self->[UA_DOTNET] };
+    my $type = shift || q{};
+    return $self->[ $type eq 'raw' ? ID_VERSION_RAW : ID_VERSION ] || 0;
 }
 
 package Parse::HTTP::UserAgent;
@@ -970,7 +1083,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION );
 
-$VERSION = '0.21';
+$VERSION = '0.30';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -1074,6 +1187,7 @@ sub _do_parse {
             : $self->_is_ff($e)          ? [firefox    => $m, $t, $e, @o       ]
             : $self->_is_safari($e, \@o) ? [safari     => $m, $t, $e, @o       ]
             : $self->_is_chrome($e, \@o) ? [chrome     => $m, $t, $e, @o       ]
+            : $self->_is_android($t,\@o) ? [android    => $m, $t, $e, @o       ]
             : $self->[IS_MAXTHON]        ? [maxthon    => $m, $t, $e, @o       ]
             : undef;
 
@@ -1163,8 +1277,18 @@ sub _numify {
                 gold     |
                 [ab]\d+  |
                 a\-XXXX  |
-                \+
+                [+]
                )}{}xmsig;
+
+    $v =~ s{
+                (?:[^0-9]+)? # usually dash
+                rc           # nonsense
+                [\-_.]?      # usually dash
+                ([0-9])      # teh candidate revision
+            }{.0.$1}xmsi;    # yeah, hacky
+
+    # workaround another stupidity (1.2.3-4)
+    $v =~ tr/-/./;
 
     if ( INSIDE_VERBOSE_TEST ) {
         if ( $1 ) {
@@ -1183,7 +1307,8 @@ sub _numify {
     $v .= q{.0} if index($v, q{.}) == NO_IMATCH;
     my $rv;
     eval {
-        $rv = version->new("$v")->numify; 1
+        $rv = version->new("$v")->numify;
+        1;
     } or do {
         my $error = $@ || '[unknown error while parsing version]';
         if ( INSIDE_UNIT_TEST ) {
@@ -1191,15 +1316,15 @@ sub _numify {
             if ( INSIDE_VERBOSE_TEST ) {
                 Test::More::diag( "[FATAL] _numify: version said: $error" );
                 Test::More::diag(
-                    sprintf "[FATAL] _numify: UA with bogus version (%s) is: %s",
+                    sprintf '[FATAL] _numify: UA with bogus version (%s) is: %s',
                                 $v, $self->[UA_STRING]
                 );
                 Test::More::diag( '[FATAL] _numify: ' . $self->dumper );
             }
-            die $error;
+            croak $error;
         }
         else {
-            die $error;
+            croak $error;
         }
     };
     return $rv;
@@ -1248,8 +1373,8 @@ generated with an automatic build tool. If you experience problems
 with this version, please install and use the supported standard
 version. This version is B<NOT SUPPORTED>.
 
-This document describes version C<0.21> of C<Parse::HTTP::UserAgent>
-released on C<19 October 2011>.
+This document describes version C<0.30> of C<Parse::HTTP::UserAgent>
+released on C<27 October 2011>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
@@ -1355,11 +1480,11 @@ If you pass a wrong parameter to the dumper, it'll croak.
 
 =item *
 
-L<HTTP::BrowserDetect>
+L<HTML::ParseBrowser>
 
 =item *
 
-L<HTML::ParseBrowser>
+L<HTTP::BrowserDetect>
 
 =item *
 
@@ -1368,6 +1493,10 @@ L<HTTP::DetectUserAgent>
 =item *
 
 L<HTTP::MobileAgent>
+
+=item *
+
+L<Mobile::UserAgent>
 
 =back
 
@@ -1390,6 +1519,23 @@ L<http://www.zytrax.com/tech/web/mobile_ids.html>,
 =item *
 
 L<http://www.webaim.org/blog/user-agent-string-history/>.
+
+=back
+
+=head2 Module Reviews
+
+=over 4
+
+=item *
+
+CPAN modules for parsing User-Agent strings by B<Neil Bowers>:
+L<http://blogs.perl.org/users/neilb/2011/10/cpan-modules-for-parsing-user-agent-strings.html>
+(23 October 2011).
+
+=item *
+
+Parse::HTTP::UserAgent: yet another user agent string parser by B<Burak Gursoy>:
+L<http://use.perl.org/~Burak/journal/39577> (4 September 2009).
 
 =back
 

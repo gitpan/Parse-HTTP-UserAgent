@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION );
 
-$VERSION = '0.21';
+$VERSION = '0.30';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -107,6 +107,7 @@ sub _do_parse {
             : $self->_is_ff($e)          ? [firefox    => $m, $t, $e, @o       ]
             : $self->_is_safari($e, \@o) ? [safari     => $m, $t, $e, @o       ]
             : $self->_is_chrome($e, \@o) ? [chrome     => $m, $t, $e, @o       ]
+            : $self->_is_android($t,\@o) ? [android    => $m, $t, $e, @o       ]
             : $self->[IS_MAXTHON]        ? [maxthon    => $m, $t, $e, @o       ]
             : undef;
 
@@ -196,8 +197,18 @@ sub _numify {
                 gold     |
                 [ab]\d+  |
                 a\-XXXX  |
-                \+
+                [+]
                )}{}xmsig;
+
+    $v =~ s{
+                (?:[^0-9]+)? # usually dash
+                rc           # nonsense
+                [\-_.]?      # usually dash
+                ([0-9])      # teh candidate revision
+            }{.0.$1}xmsi;    # yeah, hacky
+
+    # workaround another stupidity (1.2.3-4)
+    $v =~ tr/-/./;
 
     if ( INSIDE_VERBOSE_TEST ) {
         if ( $1 ) {
@@ -216,7 +227,8 @@ sub _numify {
     $v .= q{.0} if index($v, q{.}) == NO_IMATCH;
     my $rv;
     eval {
-        $rv = version->new("$v")->numify; 1
+        $rv = version->new("$v")->numify;
+        1;
     } or do {
         my $error = $@ || '[unknown error while parsing version]';
         if ( INSIDE_UNIT_TEST ) {
@@ -224,15 +236,15 @@ sub _numify {
             if ( INSIDE_VERBOSE_TEST ) {
                 Test::More::diag( "[FATAL] _numify: version said: $error" );
                 Test::More::diag(
-                    sprintf "[FATAL] _numify: UA with bogus version (%s) is: %s",
+                    sprintf '[FATAL] _numify: UA with bogus version (%s) is: %s',
                                 $v, $self->[UA_STRING]
                 );
                 Test::More::diag( '[FATAL] _numify: ' . $self->dumper );
             }
-            die $error;
+            croak $error;
         }
         else {
-            die $error;
+            croak $error;
         }
     };
     return $rv;
@@ -276,8 +288,8 @@ Parse::HTTP::UserAgent - Parser for the User Agent string
 
 =head1 DESCRIPTION
 
-This document describes version C<0.21> of C<Parse::HTTP::UserAgent>
-released on C<19 October 2011>.
+This document describes version C<0.30> of C<Parse::HTTP::UserAgent>
+released on C<27 October 2011>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
@@ -383,11 +395,11 @@ If you pass a wrong parameter to the dumper, it'll croak.
 
 =item *
 
-L<HTTP::BrowserDetect>
+L<HTML::ParseBrowser>
 
 =item *
 
-L<HTML::ParseBrowser>
+L<HTTP::BrowserDetect>
 
 =item *
 
@@ -396,6 +408,10 @@ L<HTTP::DetectUserAgent>
 =item *
 
 L<HTTP::MobileAgent>
+
+=item *
+
+L<Mobile::UserAgent>
 
 =back
 
@@ -418,6 +434,23 @@ L<http://www.zytrax.com/tech/web/mobile_ids.html>,
 =item *
 
 L<http://www.webaim.org/blog/user-agent-string-history/>.
+
+=back
+
+=head2 Module Reviews
+
+=over 4
+
+=item *
+
+CPAN modules for parsing User-Agent strings by B<Neil Bowers>:
+L<http://blogs.perl.org/users/neilb/2011/10/cpan-modules-for-parsing-user-agent-strings.html>
+(23 October 2011).
+
+=item *
+
+Parse::HTTP::UserAgent: yet another user agent string parser by B<Burak Gursoy>:
+L<http://use.perl.org/~Burak/journal/39577> (4 September 2009).
 
 =back
 
