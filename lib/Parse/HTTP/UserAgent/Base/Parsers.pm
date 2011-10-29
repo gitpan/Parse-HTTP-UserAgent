@@ -8,7 +8,7 @@ use constant ERROR_MAXTHON_MSIE    => 'Unable to extract MSIE from Maxthon UA-st
 use constant OPERA9                => 9;
 use constant OPERA_TK_LENGTH       => 5;
 
-$VERSION = '0.30';
+$VERSION = '0.31';
 
 sub _extract_dotnet {
     my($self, @args) = @_;
@@ -142,11 +142,26 @@ sub _parse_firefox {
 
 sub _parse_safari {
     my($self, $moz, $thing, $extra, @others) = @_;
-    my($version, @junk)     = split RE_WHITESPACE, pop @others;
-    my $ep = $version && index( lc($version), 'epiphany' ) != NO_IMATCH;
-    (undef, $version)       = split RE_SLASH, $version;
-    $self->[UA_NAME]        = $ep ? 'Epiphany' : 'Safari';
-    $self->[UA_VERSION_RAW] = $version;
+    my $ipad            = $thing && lc( $thing->[0] || q{} ) eq 'ipad';
+    my($version, @junk) = split RE_WHITESPACE, pop @others;
+    my $ep              = $version &&
+                            index( lc($version), 'epiphany' ) != NO_IMATCH;
+    my($junkv, $vx)     = split RE_SLASH, $version;
+
+    if ( $ipad ) {
+        shift @{ $thing }; # remove iPad
+        if ( $junkv && $junkv eq 'Mobile' ) {
+            unshift @junk, join q{/}, $junkv, $vx;
+            $vx = undef;
+        }
+        $self->[UA_MOBILE] = 1;
+        $self->[UA_TABLET] = 1;
+    }
+
+    $self->[UA_NAME]        = $ep   ? 'Epiphany'
+                            : $ipad ? 'iPad'
+                            :         'Safari';
+    $self->[UA_VERSION_RAW] = $vx;
     $self->[UA_TOOLKIT]     = $extra ? [ split RE_SLASH, $extra->[0] ] : [];
     $self->[UA_LANG]        = pop @{ $thing };
     $self->[UA_OS]          = @{$thing} && length $thing->[LAST_ELEMENT] > 1
@@ -606,8 +621,8 @@ Parse::HTTP::UserAgent::Base::Parsers - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.30> of C<Parse::HTTP::UserAgent::Base::Parsers>
-released on C<27 October 2011>.
+This document describes version C<0.31> of C<Parse::HTTP::UserAgent::Base::Parsers>
+released on C<29 October 2011>.
 
 Internal module.
 

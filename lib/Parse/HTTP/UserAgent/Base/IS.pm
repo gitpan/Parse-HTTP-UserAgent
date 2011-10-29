@@ -5,7 +5,7 @@ use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 use constant OPERA_FAKER_EXTRA_SIZE => 4;
 
-$VERSION = '0.30';
+$VERSION = '0.31';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
@@ -138,8 +138,8 @@ Parse::HTTP::UserAgent::Base::IS - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.30> of C<Parse::HTTP::UserAgent::Base::IS>
-released on C<27 October 2011>.
+This document describes version C<0.31> of C<Parse::HTTP::UserAgent::Base::IS>
+released on C<29 October 2011>.
 
 Internal module.
 

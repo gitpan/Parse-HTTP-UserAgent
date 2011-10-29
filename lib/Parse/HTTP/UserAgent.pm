@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION );
 
-$VERSION = '0.30';
+$VERSION = '0.31';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -188,7 +188,10 @@ sub _object_ids {
 sub _numify {
     my $self = shift;
     my $v    = shift || return 0;
-    $v    =~ s{(
+    my @removed;
+
+    if (
+        $v =~ s{(
                 pre      |
                 rel      |
                 alpha    |
@@ -198,23 +201,37 @@ sub _numify {
                 [ab]\d+  |
                 a\-XXXX  |
                 [+]
-               )}{}xmsig;
+               )}{}xmsig
+    ){
+        push @removed, $1 if INSIDE_VERBOSE_TEST;
+    }
 
-    $v =~ s{
+    if (
+        $v =~ s{(
                 (?:[^0-9]+)? # usually dash
                 rc           # nonsense
                 [\-_.]?      # usually dash
                 ([0-9])      # teh candidate revision
-            }{.0.$1}xmsi;    # yeah, hacky
+            )}{.0.$2}xmsi    # yeah, hacky
+    ) {
+        push @removed, $1 if INSIDE_VERBOSE_TEST;
+    }
 
     # workaround another stupidity (1.2.3-4)
     $v =~ tr/-/./;
 
     if ( INSIDE_VERBOSE_TEST ) {
-        if ( $1 ) {
-            Test::More::diag("[DEBUG] _numify: removed '$1' from version string");
+        if ( @removed ) {
+            my $r = join q{','}, @removed;
+            Test::More::diag("[DEBUG] _numify: removed '$r' from version string");
         }
     }
+
+    # Finally, be aggressive to prevent dying on bogus stuff.
+    # It's intersting how people provide highly stupid version "numbers".
+    # Version parameters are probably more stupid than the UA string itself.
+    $v =~ s<[^0-9._v]><.>xmsg;
+    $v =~ s<[.]{2,}><.>xmsg;
 
     # Gecko revisions like: "20080915000512" will cause an
     #   integer overflow warning. use bigint?
@@ -234,7 +251,7 @@ sub _numify {
         if ( INSIDE_UNIT_TEST ) {
             chomp $error;
             if ( INSIDE_VERBOSE_TEST ) {
-                Test::More::diag( "[FATAL] _numify: version said: $error" );
+                Test::More::diag( "[FATAL] _numify: version said: $error for '$v'" );
                 Test::More::diag(
                     sprintf '[FATAL] _numify: UA with bogus version (%s) is: %s',
                                 $v, $self->[UA_STRING]
@@ -288,8 +305,8 @@ Parse::HTTP::UserAgent - Parser for the User Agent string
 
 =head1 DESCRIPTION
 
-This document describes version C<0.30> of C<Parse::HTTP::UserAgent>
-released on C<27 October 2011>.
+This document describes version C<0.31> of C<Parse::HTTP::UserAgent>
+released on C<29 October 2011>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
@@ -307,8 +324,8 @@ depending on the vendor's (or the user's) choice. Also, it is not dependable
 since it is some arbitrary identification string. Any user agent can fake
 another. So, why deal with such a useless mess? You may want to see the choice
 of your visitors and can get some reliable data (even if some are fake) and
-generate some nice charts out of them or just want to send a C<HttpOnly> cookie
-if the user agent seem to support it (and send a normal one if this is not the
+generate some nice charts out of them or just want to send an C<HttpOnly> cookie
+if the user agent seems to support it (and send a normal one if this is not the
 case). However, browser sniffing for client-side coding is considered a bad
 habit.
 
@@ -421,19 +438,27 @@ L<Mobile::UserAgent>
 
 =item *
 
-L<http://en.wikipedia.org/wiki/User_agent>,
+L<http://en.wikipedia.org/wiki/User_agent>
 
 =item *
 
-L<http://www.zytrax.com/tech/web/browser_ids.htm>,
+L<http://www.zytrax.com/tech/web/browser_ids.htm>
 
 =item *
 
-L<http://www.zytrax.com/tech/web/mobile_ids.html>,
+L<http://www.zytrax.com/tech/web/mobile_ids.html>
 
 =item *
 
-L<http://www.webaim.org/blog/user-agent-string-history/>.
+L<http://www.webaim.org/blog/user-agent-string-history/>
+
+=item *
+
+L<https://developer.mozilla.org/en/Gecko_user_agent_string_reference>
+
+=item *
+
+L<http://www.useragentstring.com>
 
 =back
 

@@ -4,7 +4,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.30';
+$VERSION = '0.31';
 
 #TODO: new accessors
 #wap
@@ -110,8 +110,8 @@ Parse::HTTP::UserAgent::Base::Accessors - Available accessors
 
 =head1 DESCRIPTION
 
-This document describes version C<0.30> of C<Parse::HTTP::UserAgent::Base::Accessors>
-released on C<27 October 2011>.
+This document describes version C<0.31> of C<Parse::HTTP::UserAgent::Base::Accessors>
+released on C<29 October 2011>.
 
 Ther methods can be used to access the various parts of the parsed structure.
 
