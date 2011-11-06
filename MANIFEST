@@ -26,6 +26,8 @@ t/data/desktop/firefox/2x
 t/data/desktop/firefox/3x
 t/data/desktop/firefox/6x
 t/data/desktop/firefox/7x
+t/data/desktop/konqueror/1x
+t/data/desktop/konqueror/2x
 t/data/desktop/konqueror/3x
 t/data/desktop/konqueror/4x
 t/data/desktop/lunascape/1
@@ -38,7 +40,13 @@ t/data/desktop/msie/5x
 t/data/desktop/msie/6x
 t/data/desktop/msie/7x
 t/data/desktop/msie/8x
-t/data/desktop/netscape/1
+t/data/desktop/netscape/1x
+t/data/desktop/netscape/2x
+t/data/desktop/netscape/3x
+t/data/desktop/netscape/4x
+t/data/desktop/netscape/5x
+t/data/desktop/netscape/6x
+t/data/desktop/netscape/7x
 t/data/desktop/opera/03x
 t/data/desktop/opera/05x
 t/data/desktop/opera/06x
@@ -51,17 +59,18 @@ t/data/desktop/safari/1
 t/data/desktop/seamonkey/1
 t/data/desktop/sleipnir/1
 t/data/desktop/tinybrowser/1
-t/data/mobile/android/1
-t/data/mobile/android/dell
-t/data/mobile/android/google
-t/data/mobile/android/htc
-t/data/mobile/android/motorola
-t/data/mobile/android/samsung
-t/data/mobile/android/sony
+t/data/mobile/phone/android/1
+t/data/mobile/phone/android/dell
+t/data/mobile/phone/android/google
+t/data/mobile/phone/android/htc
+t/data/mobile/phone/android/motorola
+t/data/mobile/phone/android/samsung
+t/data/mobile/phone/android/sony
 t/data/mobile/firefox
-t/data/mobile/iphone/1
-t/data/mobile/symbian/nokia
+t/data/mobile/phone/iphone/1
+t/data/mobile/phone/symbian/nokia
 t/data/mobile/opera/1
+t/data/mobile/tablet/android/samsung
 t/data/mobile/tablet/ipad/1
 t/data/robot/1
 t/data/various/1
@@ -71,6 +80,7 @@ t/data/various/todo
 builder/Build/Spec.pm
 t/201-pod.t
 t/202-pod-coverage.t
+Build.PL	Generated automatically
 Makefile.PL	Generated automatically
 monolithic_version/README
 monolithic_version/Parse/HTTP/UserAgent.pm	The monolithic version of Parse::HTTP::UserAgent to ease dropping into web servers. Generated automatically.

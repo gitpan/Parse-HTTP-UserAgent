@@ -16,7 +16,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.31';
+$VERSION = '0.32';
 
 use constant MINUS_ONE           => -1;
 use constant NO_IMATCH           => -1; # for index()
@@ -78,6 +78,12 @@ use constant RE_DIGIT_DOT_DIGIT  => qr{\d+[.]?\d}xms;
 
 use constant RE_WARN_OVERFLOW => qr{\QInteger overflow in version\E}xms;
 use constant RE_WARN_INVALID  => qr{\QVersion string .+? contains invalid data; ignoring:\E}xms;
+
+use constant ERROR_MAXTHON_VERSION  => 'Unable to extract Maxthon version from Maxthon UA-string';
+use constant ERROR_MAXTHON_MSIE     => 'Unable to extract MSIE from Maxthon UA-string';
+use constant OPERA9                 => 9;
+use constant OPERA_TK_LENGTH        => 5;
+use constant OPERA_FAKER_EXTRA_SIZE => 4;
 
 use constant LIST_ROBOTS         => qw(
     Wget
@@ -158,6 +164,15 @@ BEGIN {
             INSIDE_UNIT_TEST
             INSIDE_VERBOSE_TEST
         )],
+        error => [qw(
+            ERROR_MAXTHON_VERSION
+            ERROR_MAXTHON_MSIE
+        )],
+        opera => [qw(
+            OPERA9
+            OPERA_TK_LENGTH
+            OPERA_FAKER_EXTRA_SIZE
+        )],
     );
 
     @EXPORT_OK        = map { @{ $_ } } values %EXPORT_TAGS;
@@ -169,12 +184,8 @@ use strict;
 use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
-use constant ERROR_MAXTHON_VERSION => 'Unable to extract Maxthon version from Maxthon UA-string';
-use constant ERROR_MAXTHON_MSIE    => 'Unable to extract MSIE from Maxthon UA-string';
-use constant OPERA9                => 9;
-use constant OPERA_TK_LENGTH       => 5;
 
-$VERSION = '0.31';
+$VERSION = '0.32';
 
 sub _extract_dotnet {
     my($self, @args) = @_;
@@ -329,7 +340,11 @@ sub _parse_safari {
                             :         'Safari';
     $self->[UA_VERSION_RAW] = $vx;
     $self->[UA_TOOLKIT]     = $extra ? [ split RE_SLASH, $extra->[0] ] : [];
-    $self->[UA_LANG]        = pop @{ $thing };
+    if ( $thing->[-1] && length($thing->[LAST_ELEMENT]) <= 5 ) {
+        # todo: $self->_is_lang_field($junk)
+        # in here or in _post_parse()
+        $self->[UA_LANG]    = pop @{ $thing };
+    }
     $self->[UA_OS]          = @{$thing} && length $thing->[LAST_ELEMENT] > 1
                             ? pop   @{ $thing }
                             : shift @{ $thing }
@@ -344,8 +359,8 @@ sub _parse_safari {
     }
     $self->[UA_EXTRAS]      = [ @{$thing}, @others ];
 
-    if ( length($self->[UA_OS]) == 1 ) {
-        push @{$self->[UA_EXTRAS]}, $self->[UA_EXTRAS];
+    if ( $self->[UA_OS] && length($self->[UA_OS]) == 1 ) {
+        push @{$self->[UA_EXTRAS]}, $self->[UA_OS];
         $self->[UA_OS] = undef;
     }
 
@@ -780,9 +795,8 @@ use strict;
 use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
-use constant OPERA_FAKER_EXTRA_SIZE => 4;
 
-$VERSION = '0.31';
+$VERSION = '0.32';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
@@ -796,18 +810,20 @@ sub _is_opera_post {
 
 sub _is_opera_ff { # opera faking as firefox
     my($self, $extra) = @_;
-    return $extra && @{$extra} == OPERA_FAKER_EXTRA_SIZE && $extra->[2] eq 'Opera';
+    return $extra
+            && @{$extra}    ==  OPERA_FAKER_EXTRA_SIZE
+            &&  $extra->[2] eq 'Opera';
 }
 
 sub _is_safari {
     my($self, $extra, $others) = @_;
     my $str = $self->[UA_STRING];
     # epiphany?
-    return                index( $str                   , 'Chrome'       ) != NO_IMATCH ? 0 # faker
-          :               index( $str                   , 'Android'      ) != NO_IMATCH ? 0 # faker
-          :    $extra  && index( $extra->[0]            , 'AppleWebKit'  ) != NO_IMATCH ? 1
-          : @{$others} && index( $others->[LAST_ELEMENT], 'Safari'       ) != NO_IMATCH ? 1
-          :                                                                     0
+    return                index( $str                   , 'Chrome'      ) != NO_IMATCH ? 0 # faker
+          :               index( $str                   , 'Android'     ) != NO_IMATCH ? 0 # faker
+          :    $extra  && index( $extra->[0]            , 'AppleWebKit' ) != NO_IMATCH ? 1
+          : @{$others} && index( $others->[LAST_ELEMENT], 'Safari'      ) != NO_IMATCH ? 1
+          :                                                                              0
           ;
 }
 
@@ -907,10 +923,10 @@ package Parse::HTTP::UserAgent::Base::Dumper;
 use strict;
 use warnings;
 use vars qw( $VERSION );
-use Parse::HTTP::UserAgent::Constants qw(:all);
 use Carp qw( croak );
+use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.31';
+$VERSION = '0.32';
 
 sub dumper {
     my($self, @args) = @_;
@@ -1008,12 +1024,13 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.31';
+$VERSION = '0.32';
 
 #TODO: new accessors
 #wap
 #mobile
 #device
+#tablet
 
 BEGIN {
     my @simple = qw(
@@ -1098,7 +1115,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION );
 
-$VERSION = '0.31';
+$VERSION = '0.32';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -1313,7 +1330,20 @@ sub _numify {
     }
 
     # workaround another stupidity (1.2.3-4)
-    $v =~ tr/-/./;
+    if ( my $rc = $v =~ tr/-/./ ) {
+        push @removed, '-' x $rc if INSIDE_VERBOSE_TEST;
+    }
+
+    # Finally, be aggressive to prevent dying on bogus stuff.
+    # It's interesting how people provide highly stupid version "numbers".
+    # Version parameters are probably more stupid than the UA string itself.
+    if ( $v =~ s<([^0-9._v])><.>xmsg ) {
+        push @removed, $1 if INSIDE_VERBOSE_TEST;
+    }
+
+    if ( $v =~ s<([.]{2,})><.>xmsg ) {
+        push @removed, $1 if INSIDE_VERBOSE_TEST;
+    }
 
     if ( INSIDE_VERBOSE_TEST ) {
         if ( @removed ) {
@@ -1321,12 +1351,6 @@ sub _numify {
             Test::More::diag("[DEBUG] _numify: removed '$r' from version string");
         }
     }
-
-    # Finally, be aggressive to prevent dying on bogus stuff.
-    # It's intersting how people provide highly stupid version "numbers".
-    # Version parameters are probably more stupid than the UA string itself.
-    $v =~ s<[^0-9._v]><.>xmsg;
-    $v =~ s<[.]{2,}><.>xmsg;
 
     # Gecko revisions like: "20080915000512" will cause an
     #   integer overflow warning. use bigint?
@@ -1405,8 +1429,8 @@ generated with an automatic build tool. If you experience problems
 with this version, please install and use the supported standard
 version. This version is B<NOT SUPPORTED>.
 
-This document describes version C<0.31> of C<Parse::HTTP::UserAgent>
-released on C<29 October 2011>.
+This document describes version C<0.32> of C<Parse::HTTP::UserAgent>
+released on C<6 November 2011>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
