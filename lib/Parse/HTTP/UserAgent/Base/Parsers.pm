@@ -4,7 +4,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.32';
+$VERSION = '0.33';
 
 sub _extract_dotnet {
     my($self, @args) = @_;
@@ -621,8 +621,8 @@ Parse::HTTP::UserAgent::Base::Parsers - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.32> of C<Parse::HTTP::UserAgent::Base::Parsers>
-released on C<6 November 2011>.
+This document describes version C<0.33> of C<Parse::HTTP::UserAgent::Base::Parsers>
+released on C<15 November 2011>.
 
 Internal module.
 

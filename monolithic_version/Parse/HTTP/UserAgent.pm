@@ -16,7 +16,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.32';
+$VERSION = '0.33';
 
 use constant MINUS_ONE           => -1;
 use constant NO_IMATCH           => -1; # for index()
@@ -77,7 +77,7 @@ use constant RE_TWO_LETTER_LANG  => qr{ \A [a-z]{2} \z }xms;
 use constant RE_DIGIT_DOT_DIGIT  => qr{\d+[.]?\d}xms;
 
 use constant RE_WARN_OVERFLOW => qr{\QInteger overflow in version\E}xms;
-use constant RE_WARN_INVALID  => qr{\QVersion string .+? contains invalid data; ignoring:\E}xms;
+use constant RE_WARN_INVALID  => qr{\QVersion string\E .+? \Qcontains invalid data; ignoring:\E}xms;
 
 use constant ERROR_MAXTHON_VERSION  => 'Unable to extract Maxthon version from Maxthon UA-string';
 use constant ERROR_MAXTHON_MSIE     => 'Unable to extract MSIE from Maxthon UA-string';
@@ -185,7 +185,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.32';
+$VERSION = '0.33';
 
 sub _extract_dotnet {
     my($self, @args) = @_;
@@ -796,7 +796,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.32';
+$VERSION = '0.33';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
@@ -926,7 +926,7 @@ use vars qw( $VERSION );
 use Carp qw( croak );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.32';
+$VERSION = '0.33';
 
 sub dumper {
     my($self, @args) = @_;
@@ -1024,7 +1024,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.32';
+$VERSION = '0.33';
 
 #TODO: new accessors
 #wap
@@ -1115,7 +1115,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION );
 
-$VERSION = '0.32';
+$VERSION = '0.33';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -1429,8 +1429,8 @@ generated with an automatic build tool. If you experience problems
 with this version, please install and use the supported standard
 version. This version is B<NOT SUPPORTED>.
 
-This document describes version C<0.32> of C<Parse::HTTP::UserAgent>
-released on C<6 November 2011>.
+This document describes version C<0.33> of C<Parse::HTTP::UserAgent>
+released on C<15 November 2011>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
