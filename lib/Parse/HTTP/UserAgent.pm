@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION );
 
-$VERSION = '0.33';
+$VERSION = '0.34';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -45,8 +45,9 @@ sub new {
     croak 'Options must be a hash reference' if ref $opt ne 'HASH';
     my $self  = [ map { undef } 0..MAXID ];
     bless $self, $class;
-    $self->[UA_STRING]   = $ua;
+    @{ $self }[ UA_STRING, UA_STRING_ORIGINAL ] = ($ua) x 2;
     $self->[IS_EXTENDED] = exists $opt->{extended} ? $opt->{extended} : 1;
+    $self->_normalize( $opt->{normalize} ) if $opt->{normalize};
     $self->_parse;
     return $self;
 }
@@ -68,6 +69,25 @@ sub trim {
     $s =~ s{ \A \s+    }{}xms;
     $s =~ s{    \s+ \z }{}xms;
     return $s;
+}
+
+sub _normalize {
+    my $self = shift;
+    my $nopt = shift;
+    my $type = ref $nopt;
+
+    my @o = ! $type            ? ':all'
+          :   $type eq 'ARRAY' ? @{ $nopt }
+          :                      croak "Normalization option $nopt is invalid";
+
+    my %mode      = map { $_ => 1 } @o;
+    my @all       = qw( plus_to_space trim_spaces );
+    @mode{ @all } = (1) x @all if delete $mode{':all'};
+
+    my $s = \$self->[UA_STRING];
+    ${$s} =~ s{[+]}{ }xmsg if $mode{plus_to_space};
+    ${$s} =~ s<\s+>< >xmsg if $mode{trim_spaces};
+    return;
 }
 
 sub _parse {
@@ -101,14 +121,14 @@ sub _do_parse {
         }
     }
 
-    my $rv =  $self->_is_opera_pre($m)   ? [opera_pre  => $m, $t, $e           ]
+    my $rv =  $self->[IS_MAXTHON]        ? [maxthon    => $m, $t, $e, @o       ]
+            : $self->_is_opera_pre($m)   ? [opera_pre  => $m, $t, $e           ]
             : $self->_is_opera_post($e)  ? [opera_post => $m, $t, $e, $c       ]
             : $self->_is_opera_ff($e)    ? [opera_pre  => "$e->[2]/$e->[3]", $t]
             : $self->_is_ff($e)          ? [firefox    => $m, $t, $e, @o       ]
             : $self->_is_safari($e, \@o) ? [safari     => $m, $t, $e, @o       ]
             : $self->_is_chrome($e, \@o) ? [chrome     => $m, $t, $e, @o       ]
             : $self->_is_android($t,\@o) ? [android    => $m, $t, $e, @o       ]
-            : $self->[IS_MAXTHON]        ? [maxthon    => $m, $t, $e, @o       ]
             : undef;
 
     if ( $rv ) {
@@ -144,8 +164,8 @@ sub _post_parse {
     $self->[UA_EXTRAS] = [ @buf ];
 
     if ( $self->[UA_TOOLKIT] ) {
-        push @{ $self->[UA_TOOLKIT] },
-             $self->_numify( $self->[UA_TOOLKIT][TK_ORIGINAL_VERSION] );
+        my $v = $self->[UA_TOOLKIT][TK_ORIGINAL_VERSION];
+        push @{ $self->[UA_TOOLKIT] }, defined $v ? $self->_numify( $v ) : 0;
     }
 
     if( $self->[UA_MOZILLA] ) {
@@ -249,6 +269,8 @@ sub _numify {
     # if version::vpp is used it'll identify 420 as a v-string
     # add a floating point to fool it
     $v .= q{.0} if index($v, q{.}) == NO_IMATCH;
+    (my $check = $v) =~ tr/0-9//cd;
+    return 0 if ! $check; # A string parsed as version (i.e.: AppleWebKit/en_SG)
     my $rv;
     eval {
         $rv = version->new("$v")->numify;
@@ -312,8 +334,8 @@ Parse::HTTP::UserAgent - Parser for the User Agent string
 
 =head1 DESCRIPTION
 
-This document describes version C<0.33> of C<Parse::HTTP::UserAgent>
-released on C<15 November 2011>.
+This document describes version C<0.34> of C<Parse::HTTP::UserAgent>
+released on C<8 April 2012>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
@@ -492,7 +514,7 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2009 - 2011 Burak Gursoy. All rights reserved.
+Copyright 2009 - 2012 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 

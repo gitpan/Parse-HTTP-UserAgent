@@ -3,15 +3,16 @@ use strict;
 use warnings;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.33';
+$VERSION = '0.34';
 
-use constant MINUS_ONE           => -1;
+use constant INIT_FIELD_COUNTER  => -1;
 use constant NO_IMATCH           => -1; # for index()
 use constant LAST_ELEMENT        => -1;
 
-BEGIN { $OID = MINUS_ONE }
+BEGIN { $OID = INIT_FIELD_COUNTER }
 
 use constant UA_STRING           => ++$OID; # just for information
+use constant UA_STRING_ORIGINAL  => ++$OID; # just for information
 use constant UA_UNKNOWN          => ++$OID; # failed to detect?
 use constant UA_GENERIC          => ++$OID; # parsed with a generic parser.
 use constant UA_NAME             => ++$OID; # The identifier of the ua
@@ -92,6 +93,7 @@ BEGIN {
             IS_MAXTHON
             IS_EXTENDED
             UA_STRING
+            UA_STRING_ORIGINAL
             UA_UNKNOWN
             UA_GENERIC
             UA_NAME
@@ -178,8 +180,8 @@ Parse::HTTP::UserAgent::Constants - Various constants
 
 =head1 DESCRIPTION
 
-This document describes version C<0.33> of C<Parse::HTTP::UserAgent::Constants>
-released on C<15 November 2011>.
+This document describes version C<0.34> of C<Parse::HTTP::UserAgent::Constants>
+released on C<8 April 2012>.
 
 Internal module
 
@@ -193,7 +195,7 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2009 - 2011 Burak Gursoy. All rights reserved.
+Copyright 2009 - 2012 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 

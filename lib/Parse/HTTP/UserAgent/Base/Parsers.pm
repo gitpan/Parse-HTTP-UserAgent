@@ -4,7 +4,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.33';
+$VERSION = '0.34';
 
 sub _extract_dotnet {
     my($self, @args) = @_;
@@ -174,9 +174,27 @@ sub _parse_safari {
     }
 
     if ( $thing->[0] && lc $thing->[0] eq 'iphone' ) {
-        $self->[UA_DEVICE]  = shift @{$thing};
+        $self->[UA_MOBILE] = 1;
+        $self->[UA_DEVICE] = shift @{$thing};
+        my $check_os       = $thing->[LAST_ELEMENT];
+
+        if ( $check_os && index( $check_os, 'Mac OS X' ) != NO_IMATCH ) {
+            if ( $self->[UA_OS] ) {
+                push @{$self->[UA_EXTRAS]}, $self->[UA_OS];
+            }
+            $self->[UA_OS] = pop @{ $thing };
+            # Another oddity: tk as "AppleWebKit/en_SG"
+            if ( ! $self->[UA_LANG] && $self->[UA_TOOLKIT] ) {
+                my $v = $self->[UA_TOOLKIT][TK_ORIGINAL_VERSION];
+                if ( $v && $v =~ m< [a-zA-Z]{2}_[a-zA-Z]{2} >xms ) {
+                    $self->[UA_LANG] = $v;
+                    $self->[UA_TOOLKIT][TK_ORIGINAL_VERSION] = undef;
+                }
+            }
+        }
     }
-    $self->[UA_EXTRAS]      = [ @{$thing}, @others ];
+
+    $self->[UA_EXTRAS] = [ @{$thing}, @others ];
 
     if ( $self->[UA_OS] && length($self->[UA_OS]) == 1 ) {
         push @{$self->[UA_EXTRAS]}, $self->[UA_OS];
@@ -621,8 +639,8 @@ Parse::HTTP::UserAgent::Base::Parsers - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.33> of C<Parse::HTTP::UserAgent::Base::Parsers>
-released on C<15 November 2011>.
+This document describes version C<0.34> of C<Parse::HTTP::UserAgent::Base::Parsers>
+released on C<8 April 2012>.
 
 Internal module.
 
@@ -636,7 +654,7 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2009 - 2011 Burak Gursoy. All rights reserved.
+Copyright 2009 - 2012 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 
