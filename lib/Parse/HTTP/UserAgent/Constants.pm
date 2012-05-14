@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.34';
+$VERSION = '0.35';
 
 use constant INIT_FIELD_COUNTER  => -1;
 use constant NO_IMATCH           => -1; # for index()
@@ -45,10 +45,10 @@ use constant TK_VERSION          => 2;
 use constant INSIDE_UNIT_TEST    => $ENV{PARSE_HTTP_USERAGENT_TEST_SUITE};
 use constant INSIDE_VERBOSE_TEST => INSIDE_UNIT_TEST && $ENV{HARNESS_IS_VERBOSE};
 use constant RE_FIREFOX_NAMES    => qr{Firefox|Iceweasel|Firebird|Phoenix }xms;
-use constant RE_DOTNET           => qr{ \A [.]NET \s+ CLR \s+ (.+?) \z    }xms;
+use constant RE_DOTNET           => qr{ \A [.]NET (?: \s+ CLR \s+ )? (.+?) \z    }xms;
 use constant RE_WINDOWS_OS       => qr{ \A Win(dows|NT|[0-9]+)?           }xmsi;
 use constant RE_SLASH            => qr{ /                                 }xms;
-use constant RE_SPLIT_PARSE      => qr{ \s? [()] \s?                      }xms;
+use constant RE_SPLIT_PARSE      => qr{ \s? ([()]) \s?                    }xms;
 use constant RE_OPERA_MINI       => qr{ \A (Opera \s+ Mini) / (.+?) \z    }xms;
 use constant RE_TRIDENT          => qr{ \A (Trident) / (.+?) \z           }xmsi;
 use constant RE_EPIPHANY_GECKO   => qr{ \A (Epiphany) / (.+?) \z          }xmsi;
@@ -180,8 +180,8 @@ Parse::HTTP::UserAgent::Constants - Various constants
 
 =head1 DESCRIPTION
 
-This document describes version C<0.34> of C<Parse::HTTP::UserAgent::Constants>
-released on C<8 April 2012>.
+This document describes version C<0.35> of C<Parse::HTTP::UserAgent::Constants>
+released on C<14 May 2012>.
 
 Internal module
 

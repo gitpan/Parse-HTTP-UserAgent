@@ -4,7 +4,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.34';
+$VERSION = '0.35';
 
 sub _extract_dotnet {
     my($self, @args) = @_;
@@ -18,7 +18,8 @@ sub _extract_dotnet {
         }
         if ( $e =~ RE_WINDOWS_OS ) {
             if ( $1 && $1 ne '64' ) {
-                $self->[UA_OS] = $e;
+                # Maxthon stupidity: multiple OS definitions
+                $self->[UA_OS] ||= $e;
                 next;
             }
         }
@@ -66,9 +67,17 @@ sub _parse_maxthon {
     my($self, $moz, $thing, $extra, @others) = @_;
     my @omap = grep { $_ } map { split RE_SC_WS_MULTI, $_ } @others;
     my($maxthon, $msie, @buf);
+
     foreach my $e ( @omap, @{$thing} ) { # $extra -> junk
-        if ( index(uc $e, 'MAXTHON') != NO_IMATCH ) { $maxthon = $e; next; }
-        if ( index(uc $e, 'MSIE'   ) != NO_IMATCH ) { $msie    = $e; next; }
+        if ( index(uc $e, 'MAXTHON') != NO_IMATCH ) {
+            $maxthon = $e;
+            next;
+        }
+        if ( index(uc $e, 'MSIE' ) != NO_IMATCH ) {
+            # Maxthon stupidity: multiple MSIE strings
+            $msie ||= $e;
+            next;
+        }
         push @buf, $e;
     }
 
@@ -96,6 +105,7 @@ sub _parse_maxthon {
 
     $self->[UA_ORIGINAL_VERSION] = $v;
     $self->[UA_ORIGINAL_NAME]    = 'Maxthon';
+    $self->[UA_PARSER]           = 'maxthon';
     return 1;
 }
 
@@ -124,16 +134,56 @@ sub _parse_msie {
         }
         push @buf, $e;
     }
-    $self->[UA_EXTRAS] = [ @buf ];
+
+    $self->[UA_EXTRAS] = [
+        map  { $self->trim( $_ ) }
+        grep { $_ !~ m{ \s+ compatible \z }xms }
+        @buf
+    ];
+
     $self->[UA_PARSER] = 'msie';
+
     return 1;
 }
 
 sub _parse_firefox {
     my($self, @args) = @_;
     $self->_parse_mozilla_family( @args );
+    my $e = $self->[UA_EXTRAS];
+
+    if ( ref $e eq 'ARRAY'
+        && @{ $e } > 0
+        && index( lc $e->[-1], 'fennec' ) != NO_IMATCH
+    ) {
+        $self->_fix_fennec( $e );
+    }
+
     $self->[UA_NAME] = 'Firefox';
+
     return 1;
+}
+
+sub _fix_fennec {
+    my($self, $e) = @_;
+    my($name, $version) = split RE_SLASH, pop @{ $e };
+    $self->[UA_ORIGINAL_NAME]    = $name;
+    $self->[UA_ORIGINAL_VERSION] = $version;
+    $self->[UA_MOBILE]           = 1;
+    return if ! $self->[UA_LANG];
+
+    if ( lc $self->[UA_LANG] eq 'tablet' ) {
+        $self->[UA_TABLET] = 1;
+        $self->[UA_LANG]   = undef;
+    }
+    elsif ( index( $self->[UA_LANG], q{ } ) != NO_IMATCH ) {
+        push @{ $self->[UA_EXTRAS] }, $self->[UA_LANG];
+        $self->[UA_LANG] = undef;
+    }
+    else {
+        # Do nothing
+    }
+
+    return;
 }
 
 sub _parse_safari {
@@ -221,6 +271,13 @@ sub _parse_chrome {
 sub _parse_android {
     my($self, $moz, $thing, $extra, @others) = @_;
     (undef, @{$self}[UA_STRENGTH, UA_OS, UA_LANG, UA_DEVICE]) = @{ $thing };
+    if ( ! $extra
+        && $others[0]
+        && index( $others[0], 'AppleWebKit' ) != NO_IMATCH
+    ) {
+        $extra = [ shift @others ];
+        $self->[UA_PARSER] = 'android:paren_fixer';
+    }
     $self->[UA_TOOLKIT] = [ split RE_SLASH, $extra->[0] ] if $extra;
     my(@extras, $is_phone);
 
@@ -266,7 +323,7 @@ sub _parse_android {
     $self->[UA_NAME]   = 'Android';
     $self->[UA_MOBILE] = 1;
     $self->[UA_TABLET] = $is_phone ? undef : 1;
-    $self->[UA_EXTRAS] = [ @extras ];
+    $self->[UA_EXTRAS] = [ grep { $_ } @extras ];
 
     return 1;
 }
@@ -333,14 +390,20 @@ sub _parse_opera_post {
 }
 
 sub _parse_mozilla_family {
-    my($self, $moz, $thing, $extra, @extras) = @_;
+    my($self, $moz, $thing, $extra, @others) = @_;
     # firefox variation or just mozilla itself
     my($name, $version)      = split RE_SLASH, defined $extra->[1] ? $extra->[1]
                              :                                       $moz
                              ;
+    if ( $version ) {
+        $extra->[1] = '';
+    }
     $self->[UA_NAME]         = $name;
-    $self->[UA_TOOLKIT]      = $extra ? [ split RE_SLASH, $extra->[0] ] : [];
     $self->[UA_VERSION_RAW]  = $version;
+    $self->[UA_TOOLKIT]      = $extra->[0]
+                             ? [ split RE_SLASH, shift @{ $extra } ]
+                             : []
+                             ;
 
     if ( @{$thing} && index($thing->[LAST_ELEMENT], 'rv:') != NO_IMATCH ) {
         $self->[UA_MOZILLA]  = pop @{ $thing };
@@ -357,7 +420,12 @@ sub _parse_mozilla_family {
         }
     }
 
-    $self->[UA_EXTRAS] = [ @{ $thing }, @extras ];
+    $self->[UA_EXTRAS] = [
+        grep { $_ }
+        @{ $thing },
+        @others,
+        $extra ? @{ $extra } : (),
+    ];
     return 1;
 }
 
@@ -568,6 +636,7 @@ sub _parse_emacs {
     $self->[UA_NAME]        = $name;
     $self->[UA_VERSION_RAW] = $version || 0;
     $self->[UA_OS]          = shift @{ $thing };
+    $self->[UA_OS]          = $self->trim( $self->[UA_OS] ) if $self->[UA_OS];
     my @rest = (  @{ $thing }, @moz );
     push @rest, @{ $extra } if $extra && ref $extra eq 'ARRAY';
     push @rest, ( map { split RE_SC_WS, $_ } @others ) if @others;
@@ -639,8 +708,8 @@ Parse::HTTP::UserAgent::Base::Parsers - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.34> of C<Parse::HTTP::UserAgent::Base::Parsers>
-released on C<8 April 2012>.
+This document describes version C<0.35> of C<Parse::HTTP::UserAgent::Base::Parsers>
+released on C<14 May 2012>.
 
 Internal module.
 

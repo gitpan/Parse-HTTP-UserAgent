@@ -4,7 +4,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.34';
+$VERSION = '0.35';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
@@ -50,7 +50,23 @@ sub _is_android {
     my($self, $thing, $others) = @_;
     my $has_android = grep { index( lc $_, 'android' ) != NO_IMATCH  } @{ $thing  };
     my $has_safari  = grep { index( lc $_, 'safari'  ) != NO_IMATCH  } @{ $others };
-    return $has_android && $has_safari;
+    if ( $has_android && $has_safari ) {
+        return 1;
+    }
+    if (   @{ $others } == 0
+        && @{ $thing  }  > 0
+        && $thing->[-1]
+        && index( $thing->[-1], 'AppleWebKit' ) != NO_IMATCH
+    ) {
+        # More stupidity: ua string is missing a closing paren
+        my($part, @rest) = split m{(AppleWebKit)}xms, $thing->[-1];
+        $thing->[-1] = $part;
+        @{ $others } =  map   { $self->trim( $_ ) }
+                        split m{ (\QKHTML, like Gecko\E) }xms,
+                        join  q{}, @rest;
+        return 1;
+    }
+    return;
 }
 
 sub _is_ff {
@@ -139,8 +155,8 @@ Parse::HTTP::UserAgent::Base::IS - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.34> of C<Parse::HTTP::UserAgent::Base::IS>
-released on C<8 April 2012>.
+This document describes version C<0.35> of C<Parse::HTTP::UserAgent::Base::IS>
+released on C<14 May 2012>.
 
 Internal module.
 

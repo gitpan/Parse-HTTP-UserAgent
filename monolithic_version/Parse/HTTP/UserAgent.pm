@@ -16,7 +16,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.34';
+$VERSION = '0.35';
 
 use constant INIT_FIELD_COUNTER  => -1;
 use constant NO_IMATCH           => -1; # for index()
@@ -58,10 +58,10 @@ use constant TK_VERSION          => 2;
 use constant INSIDE_UNIT_TEST    => $ENV{PARSE_HTTP_USERAGENT_TEST_SUITE};
 use constant INSIDE_VERBOSE_TEST => INSIDE_UNIT_TEST && $ENV{HARNESS_IS_VERBOSE};
 use constant RE_FIREFOX_NAMES    => qr{Firefox|Iceweasel|Firebird|Phoenix }xms;
-use constant RE_DOTNET           => qr{ \A [.]NET \s+ CLR \s+ (.+?) \z    }xms;
+use constant RE_DOTNET           => qr{ \A [.]NET (?: \s+ CLR \s+ )? (.+?) \z    }xms;
 use constant RE_WINDOWS_OS       => qr{ \A Win(dows|NT|[0-9]+)?           }xmsi;
 use constant RE_SLASH            => qr{ /                                 }xms;
-use constant RE_SPLIT_PARSE      => qr{ \s? [()] \s?                      }xms;
+use constant RE_SPLIT_PARSE      => qr{ \s? ([()]) \s?                    }xms;
 use constant RE_OPERA_MINI       => qr{ \A (Opera \s+ Mini) / (.+?) \z    }xms;
 use constant RE_TRIDENT          => qr{ \A (Trident) / (.+?) \z           }xmsi;
 use constant RE_EPIPHANY_GECKO   => qr{ \A (Epiphany) / (.+?) \z          }xmsi;
@@ -187,7 +187,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.34';
+$VERSION = '0.35';
 
 sub _extract_dotnet {
     my($self, @args) = @_;
@@ -201,7 +201,8 @@ sub _extract_dotnet {
         }
         if ( $e =~ RE_WINDOWS_OS ) {
             if ( $1 && $1 ne '64' ) {
-                $self->[UA_OS] = $e;
+                # Maxthon stupidity: multiple OS definitions
+                $self->[UA_OS] ||= $e;
                 next;
             }
         }
@@ -249,9 +250,17 @@ sub _parse_maxthon {
     my($self, $moz, $thing, $extra, @others) = @_;
     my @omap = grep { $_ } map { split RE_SC_WS_MULTI, $_ } @others;
     my($maxthon, $msie, @buf);
+
     foreach my $e ( @omap, @{$thing} ) { # $extra -> junk
-        if ( index(uc $e, 'MAXTHON') != NO_IMATCH ) { $maxthon = $e; next; }
-        if ( index(uc $e, 'MSIE'   ) != NO_IMATCH ) { $msie    = $e; next; }
+        if ( index(uc $e, 'MAXTHON') != NO_IMATCH ) {
+            $maxthon = $e;
+            next;
+        }
+        if ( index(uc $e, 'MSIE' ) != NO_IMATCH ) {
+            # Maxthon stupidity: multiple MSIE strings
+            $msie ||= $e;
+            next;
+        }
         push @buf, $e;
     }
 
@@ -279,6 +288,7 @@ sub _parse_maxthon {
 
     $self->[UA_ORIGINAL_VERSION] = $v;
     $self->[UA_ORIGINAL_NAME]    = 'Maxthon';
+    $self->[UA_PARSER]           = 'maxthon';
     return 1;
 }
 
@@ -307,16 +317,56 @@ sub _parse_msie {
         }
         push @buf, $e;
     }
-    $self->[UA_EXTRAS] = [ @buf ];
+
+    $self->[UA_EXTRAS] = [
+        map  { $self->trim( $_ ) }
+        grep { $_ !~ m{ \s+ compatible \z }xms }
+        @buf
+    ];
+
     $self->[UA_PARSER] = 'msie';
+
     return 1;
 }
 
 sub _parse_firefox {
     my($self, @args) = @_;
     $self->_parse_mozilla_family( @args );
+    my $e = $self->[UA_EXTRAS];
+
+    if ( ref $e eq 'ARRAY'
+        && @{ $e } > 0
+        && index( lc $e->[-1], 'fennec' ) != NO_IMATCH
+    ) {
+        $self->_fix_fennec( $e );
+    }
+
     $self->[UA_NAME] = 'Firefox';
+
     return 1;
+}
+
+sub _fix_fennec {
+    my($self, $e) = @_;
+    my($name, $version) = split RE_SLASH, pop @{ $e };
+    $self->[UA_ORIGINAL_NAME]    = $name;
+    $self->[UA_ORIGINAL_VERSION] = $version;
+    $self->[UA_MOBILE]           = 1;
+    return if ! $self->[UA_LANG];
+
+    if ( lc $self->[UA_LANG] eq 'tablet' ) {
+        $self->[UA_TABLET] = 1;
+        $self->[UA_LANG]   = undef;
+    }
+    elsif ( index( $self->[UA_LANG], q{ } ) != NO_IMATCH ) {
+        push @{ $self->[UA_EXTRAS] }, $self->[UA_LANG];
+        $self->[UA_LANG] = undef;
+    }
+    else {
+        # Do nothing
+    }
+
+    return;
 }
 
 sub _parse_safari {
@@ -404,6 +454,13 @@ sub _parse_chrome {
 sub _parse_android {
     my($self, $moz, $thing, $extra, @others) = @_;
     (undef, @{$self}[UA_STRENGTH, UA_OS, UA_LANG, UA_DEVICE]) = @{ $thing };
+    if ( ! $extra
+        && $others[0]
+        && index( $others[0], 'AppleWebKit' ) != NO_IMATCH
+    ) {
+        $extra = [ shift @others ];
+        $self->[UA_PARSER] = 'android:paren_fixer';
+    }
     $self->[UA_TOOLKIT] = [ split RE_SLASH, $extra->[0] ] if $extra;
     my(@extras, $is_phone);
 
@@ -449,7 +506,7 @@ sub _parse_android {
     $self->[UA_NAME]   = 'Android';
     $self->[UA_MOBILE] = 1;
     $self->[UA_TABLET] = $is_phone ? undef : 1;
-    $self->[UA_EXTRAS] = [ @extras ];
+    $self->[UA_EXTRAS] = [ grep { $_ } @extras ];
 
     return 1;
 }
@@ -516,14 +573,20 @@ sub _parse_opera_post {
 }
 
 sub _parse_mozilla_family {
-    my($self, $moz, $thing, $extra, @extras) = @_;
+    my($self, $moz, $thing, $extra, @others) = @_;
     # firefox variation or just mozilla itself
     my($name, $version)      = split RE_SLASH, defined $extra->[1] ? $extra->[1]
                              :                                       $moz
                              ;
+    if ( $version ) {
+        $extra->[1] = '';
+    }
     $self->[UA_NAME]         = $name;
-    $self->[UA_TOOLKIT]      = $extra ? [ split RE_SLASH, $extra->[0] ] : [];
     $self->[UA_VERSION_RAW]  = $version;
+    $self->[UA_TOOLKIT]      = $extra->[0]
+                             ? [ split RE_SLASH, shift @{ $extra } ]
+                             : []
+                             ;
 
     if ( @{$thing} && index($thing->[LAST_ELEMENT], 'rv:') != NO_IMATCH ) {
         $self->[UA_MOZILLA]  = pop @{ $thing };
@@ -540,7 +603,12 @@ sub _parse_mozilla_family {
         }
     }
 
-    $self->[UA_EXTRAS] = [ @{ $thing }, @extras ];
+    $self->[UA_EXTRAS] = [
+        grep { $_ }
+        @{ $thing },
+        @others,
+        $extra ? @{ $extra } : (),
+    ];
     return 1;
 }
 
@@ -751,6 +819,7 @@ sub _parse_emacs {
     $self->[UA_NAME]        = $name;
     $self->[UA_VERSION_RAW] = $version || 0;
     $self->[UA_OS]          = shift @{ $thing };
+    $self->[UA_OS]          = $self->trim( $self->[UA_OS] ) if $self->[UA_OS];
     my @rest = (  @{ $thing }, @moz );
     push @rest, @{ $extra } if $extra && ref $extra eq 'ARRAY';
     push @rest, ( map { split RE_SC_WS, $_ } @others ) if @others;
@@ -816,7 +885,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.34';
+$VERSION = '0.35';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
@@ -862,7 +931,23 @@ sub _is_android {
     my($self, $thing, $others) = @_;
     my $has_android = grep { index( lc $_, 'android' ) != NO_IMATCH  } @{ $thing  };
     my $has_safari  = grep { index( lc $_, 'safari'  ) != NO_IMATCH  } @{ $others };
-    return $has_android && $has_safari;
+    if ( $has_android && $has_safari ) {
+        return 1;
+    }
+    if (   @{ $others } == 0
+        && @{ $thing  }  > 0
+        && $thing->[-1]
+        && index( $thing->[-1], 'AppleWebKit' ) != NO_IMATCH
+    ) {
+        # More stupidity: ua string is missing a closing paren
+        my($part, @rest) = split m{(AppleWebKit)}xms, $thing->[-1];
+        $thing->[-1] = $part;
+        @{ $others } =  map   { $self->trim( $_ ) }
+                        split m{ (\QKHTML, like Gecko\E) }xms,
+                        join  q{}, @rest;
+        return 1;
+    }
+    return;
 }
 
 sub _is_ff {
@@ -946,7 +1031,7 @@ use vars qw( $VERSION );
 use Carp qw( croak );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.34';
+$VERSION = '0.35';
 
 sub dumper {
     my($self, @args) = @_;
@@ -1044,7 +1129,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.34';
+$VERSION = '0.35';
 
 #TODO: new accessors
 #wap
@@ -1135,7 +1220,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION );
 
-$VERSION = '0.34';
+$VERSION = '0.35';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -1235,9 +1320,32 @@ sub _pre_parse {
     my $self = shift;
     $self->[IS_MAXTHON] = index(uc $self->[UA_STRING], 'MAXTHON') != NO_IMATCH;
     my $ua = $self->[UA_STRING];
-    my($moz, $thing, $extra, @others) = split RE_SPLIT_PARSE, $ua;
+
+    my @parts;
+    my $i     = 0;
+    my $depth = 0;
+    foreach my $token ( split RE_SPLIT_PARSE, $ua ) {
+        if ( $token eq '(' ) {
+            $i++ if ++$depth == 1;
+            next;
+        }
+        if ( $token eq ')' ) {
+            $i++ if --$depth == 0;
+            next;
+        }
+        push @{ $parts[$i] ||= [] }, $token;
+    }
+
+    # Hopefully the above code was successful and now we can set the actual
+    # tokens to use inside parsers.
+    my($moz)    = join ' ', @{ shift(@parts) || []  };
+    my($thing)  = join ' ', @{ shift(@parts) || []  };
+    my($extra)  = join ' ', @{ shift(@parts) || []  };
+    my(@others) = map { @{ $_ } } @parts;
+
     $thing = $thing ? [ split RE_SC_WS, $thing ] : [];
     $extra = [ split RE_WHITESPACE, $extra ] if $extra;
+
     $self->_debug_pre_parse( $moz, $thing, $extra, @others ) if DEBUG;
     return $moz, $thing, $extra, @others;
 }
@@ -1268,7 +1376,7 @@ sub _do_parse {
         my $method = '_parse_' . $pname;
         my $rvx    = $self->$method( @{ $rv } );
         if ( $rvx ) {
-            $self->[UA_PARSER] = $pname;
+            $self->[UA_PARSER] ||= $pname;
             return $rvx;
         }
     }
@@ -1471,8 +1579,8 @@ generated with an automatic build tool. If you experience problems
 with this version, please install and use the supported standard
 version. This version is B<NOT SUPPORTED>.
 
-This document describes version C<0.34> of C<Parse::HTTP::UserAgent>
-released on C<8 April 2012>.
+This document describes version C<0.35> of C<Parse::HTTP::UserAgent>
+released on C<14 May 2012>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
