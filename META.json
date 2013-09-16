@@ -41,30 +41,27 @@
    "provides" : {
       "Parse::HTTP::UserAgent" : {
          "file" : "lib/Parse/HTTP/UserAgent.pm",
-         "version" : "0.37"
+         "version" : "0.38"
       },
       "Parse::HTTP::UserAgent::Base::Accessors" : {
          "file" : "lib/Parse/HTTP/UserAgent/Base/Accessors.pm",
-         "version" : "0.37"
-      },
-      "Parse::HTTP::UserAgent::Base::Accessors::toolkit" : {
-         "file" : "lib/Parse/HTTP/UserAgent/Base/Accessors.pm"
+         "version" : "0.38"
       },
       "Parse::HTTP::UserAgent::Base::Dumper" : {
          "file" : "lib/Parse/HTTP/UserAgent/Base/Dumper.pm",
-         "version" : "0.37"
+         "version" : "0.38"
       },
       "Parse::HTTP::UserAgent::Base::IS" : {
          "file" : "lib/Parse/HTTP/UserAgent/Base/IS.pm",
-         "version" : "0.37"
+         "version" : "0.38"
       },
       "Parse::HTTP::UserAgent::Base::Parsers" : {
          "file" : "lib/Parse/HTTP/UserAgent/Base/Parsers.pm",
-         "version" : "0.37"
+         "version" : "0.38"
       },
       "Parse::HTTP::UserAgent::Constants" : {
          "file" : "lib/Parse/HTTP/UserAgent/Constants.pm",
-         "version" : "0.37"
+         "version" : "0.38"
       }
    },
    "release_status" : "stable",
@@ -76,5 +73,5 @@
          "url" : "http://bitbucket.org/burak/cpan-parse-http-useragent/"
       }
    },
-   "version" : "0.37"
+   "version" : "0.38"
 }

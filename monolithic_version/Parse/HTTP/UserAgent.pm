@@ -16,7 +16,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.37';
+$VERSION = '0.38';
 
 use constant INIT_FIELD_COUNTER  => -1;
 use constant NO_IMATCH           => -1; # for index()
@@ -187,7 +187,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.37';
+$VERSION = '0.38';
 
 sub _extract_dotnet {
     my($self, @args) = @_;
@@ -926,7 +926,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.37';
+$VERSION = '0.38';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
@@ -1072,7 +1072,7 @@ use vars qw( $VERSION );
 use Carp qw( croak );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.37';
+$VERSION = '0.38';
 
 sub dumper {
     my($self, @args) = @_;
@@ -1170,7 +1170,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.37';
+$VERSION = '0.38';
 
 #TODO: new accessors
 #wap
@@ -1230,7 +1230,8 @@ sub toolkit {
             );
 }
 
-package Parse::HTTP::UserAgent::Base::Accessors::toolkit;
+package
+Parse::HTTP::UserAgent::Base::Accessors::toolkit;
 use strict;
 use warnings;
 use overload '""',    => 'name',
@@ -1261,7 +1262,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION );
 
-$VERSION = '0.37';
+$VERSION = '0.38';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -1620,7 +1621,7 @@ generated with an automatic build tool. If you experience problems
 with this version, please install and use the supported standard
 version. This version is B<NOT SUPPORTED>.
 
-This document describes version C<0.37> of C<Parse::HTTP::UserAgent>
+This document describes version C<0.38> of C<Parse::HTTP::UserAgent>
 released on C<16 September 2013>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:

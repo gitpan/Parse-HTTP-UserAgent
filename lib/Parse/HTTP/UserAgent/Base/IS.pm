@@ -4,7 +4,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.37';
+$VERSION = '0.38';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
@@ -155,7 +155,7 @@ Parse::HTTP::UserAgent::Base::IS - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.37> of C<Parse::HTTP::UserAgent::Base::IS>
+This document describes version C<0.38> of C<Parse::HTTP::UserAgent::Base::IS>
 released on C<16 September 2013>.
 
 Internal module.
