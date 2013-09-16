@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION );
 
-$VERSION = '0.35';
+$VERSION = '0.37';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -357,8 +357,8 @@ Parse::HTTP::UserAgent - Parser for the User Agent string
 
 =head1 DESCRIPTION
 
-This document describes version C<0.35> of C<Parse::HTTP::UserAgent>
-released on C<14 May 2012>.
+This document describes version C<0.37> of C<Parse::HTTP::UserAgent>
+released on C<16 September 2013>.
 
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
@@ -537,12 +537,11 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2009 - 2012 Burak Gursoy. All rights reserved.
+Copyright 2009 - 2013 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 
-This library is free software; you can redistribute it and/or modify 
-it under the same terms as Perl itself, either Perl version 5.12.3 or, 
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.16.2 or,
 at your option, any later version of Perl 5 you may have available.
-
 =cut

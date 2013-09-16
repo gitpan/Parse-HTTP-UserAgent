@@ -4,7 +4,7 @@ use warnings;
 use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.35';
+$VERSION = '0.37';
 
 sub _extract_dotnet {
     my($self, @args) = @_;
@@ -65,8 +65,30 @@ sub _fix_generic {
 
 sub _parse_maxthon {
     my($self, $moz, $thing, $extra, @others) = @_;
-    my @omap = grep { $_ } map { split RE_SC_WS_MULTI, $_ } @others;
+    my $is_30 =    $extra
+                && $extra->[0]
+                && index( $extra->[0], 'AppleWebKit' ) != NO_IMATCH;
     my($maxthon, $msie, @buf);
+
+    if ( $is_30 ) {
+        # yay, new nonsense with the new version
+        my @new;
+        for my $i (0..$#others) {
+            if ( index( $others[$i], 'Maxthon') != NO_IMATCH ) {
+                @new        = split m{\s+}xms, $others[$i];
+                $maxthon    = shift @new;
+                $extra    ||= [];
+                unshift @{ $extra }, shift @new;
+                $others[$i] = '';
+                last;
+            }
+        }
+        @others = grep { $_ } @others, @new;
+        $self->_parse_safari( $moz, $thing, $extra, @others );
+        $self->[UA_NAME] = 'Maxthon';
+    }
+    else {
+    my @omap = grep { $_ } map { split RE_SC_WS_MULTI, $_ } @others;
 
     foreach my $e ( @omap, @{$thing} ) { # $extra -> junk
         if ( index(uc $e, 'MAXTHON') != NO_IMATCH ) {
@@ -80,6 +102,7 @@ sub _parse_maxthon {
         }
         push @buf, $e;
     }
+    }
 
     if ( ! $maxthon ) {
         warn ERROR_MAXTHON_VERSION . "\n";
@@ -87,17 +110,24 @@ sub _parse_maxthon {
         return;
     }
 
-    if ( ! $msie ) {
-        warn ERROR_MAXTHON_MSIE . "\n";
-        $self->[UA_UNKNOWN] = 1;
-        return;
+    if ( $is_30 ) {
+        if ( $self->[UA_LANG] ) {
+            push @{ $self->[UA_EXTRAS] }, $self->[UA_LANG];
+            $self->[UA_LANG] = undef;
+        }
+    }
+    else {
+        if ( ! $msie ) {
+            warn ERROR_MAXTHON_MSIE . "\n";
+            $self->[UA_UNKNOWN] = 1;
+            return;
+        }
+        $self->_parse_msie(
+            $moz, [ undef, @buf ], undef, split RE_WHITESPACE, $msie
+        );
     }
 
-    $self->_parse_msie(
-        $moz, [ undef, @buf ], undef, split RE_WHITESPACE, $msie
-    );
-
-    my(undef, $mv) = split RE_WHITESPACE, $maxthon;
+    my(undef, $mv) = split $is_30 ? RE_SLASH : RE_WHITESPACE, $maxthon;
     my $v = $mv      ? $mv
           : $maxthon ? '1.0'
           :            do { warn ERROR_MAXTHON_VERSION . "\n"; 0 }
@@ -208,7 +238,7 @@ sub _parse_safari {
                             : $ipad ? 'iPad'
                             :         'Safari';
     $self->[UA_VERSION_RAW] = $vx;
-    $self->[UA_TOOLKIT]     = $extra ? [ split RE_SLASH, $extra->[0] ] : [];
+    $self->[UA_TOOLKIT]     = $extra ? [ split RE_SLASH, shift @{ $extra } ] : [];
     if ( $thing->[-1] && length($thing->[LAST_ELEMENT]) <= 5 ) {
         # todo: $self->_is_lang_field($junk)
         # in here or in _post_parse()
@@ -252,18 +282,29 @@ sub _parse_safari {
     }
 
     push @{$self->[UA_EXTRAS]}, @junk if @junk;
+    push @{$self->[UA_EXTRAS]}, @{$extra} if $extra;
 
     return 1;
 }
 
 sub _parse_chrome {
     my($self, $moz, $thing, $extra, @others) = @_;
-    my $chx                  = pop @others;
-    my($chrome, $safari)     = split RE_WHITESPACE, $chx;
-    push @others, $safari;
+    my $chx = pop @others;
+    my($chrome, $safari, @rest) = split RE_WHITESPACE, $chx;
+    my $opera;
+    if ( $rest[0] && index( $rest[0], 'OPR/', 0) != NO_IMATCH ) {
+        $opera = shift @rest;
+        if ( ref $extra eq 'ARRAY' ) {
+            unshift @{ $extra }, $chrome;
+        }
+        push @others, @rest, $safari;
+    }
+    else {
+        push @others, $safari;
+    }
     $self->_parse_safari($moz, $thing, $extra, @others);
-    my($name, $version)      = split RE_SLASH, $chrome;
-    $self->[UA_NAME]         = $name;
+    my($name, $version)      = split RE_SLASH, $opera || $chrome;
+    $self->[UA_NAME]         = $opera ? 'Opera' : $name;
     $self->[UA_VERSION_RAW]  = $version;
     return 1;
 }
@@ -708,8 +749,8 @@ Parse::HTTP::UserAgent::Base::Parsers - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.35> of C<Parse::HTTP::UserAgent::Base::Parsers>
-released on C<14 May 2012>.
+This document describes version C<0.37> of C<Parse::HTTP::UserAgent::Base::Parsers>
+released on C<16 September 2013>.
 
 Internal module.
 
@@ -723,12 +764,11 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2009 - 2012 Burak Gursoy. All rights reserved.
+Copyright 2009 - 2013 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 
-This library is free software; you can redistribute it and/or modify 
-it under the same terms as Perl itself, either Perl version 5.12.3 or, 
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.16.2 or,
 at your option, any later version of Perl 5 you may have available.
-
 =cut
