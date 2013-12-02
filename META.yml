@@ -22,25 +22,25 @@ no_index:
 provides:
   Parse::HTTP::UserAgent:
     file: lib/Parse/HTTP/UserAgent.pm
-    version: 0.38
+    version: 0.39
   Parse::HTTP::UserAgent::Base::Accessors:
     file: lib/Parse/HTTP/UserAgent/Base/Accessors.pm
-    version: 0.38
+    version: 0.39
   Parse::HTTP::UserAgent::Base::Dumper:
     file: lib/Parse/HTTP/UserAgent/Base/Dumper.pm
-    version: 0.38
+    version: 0.39
   Parse::HTTP::UserAgent::Base::IS:
     file: lib/Parse/HTTP/UserAgent/Base/IS.pm
-    version: 0.38
+    version: 0.39
   Parse::HTTP::UserAgent::Base::Parsers:
     file: lib/Parse/HTTP/UserAgent/Base/Parsers.pm
-    version: 0.38
+    version: 0.39
   Parse::HTTP::UserAgent::Constants:
     file: lib/Parse/HTTP/UserAgent/Constants.pm
-    version: 0.38
+    version: 0.39
 requires:
   version: 0
 resources:
   license: http://dev.perl.org/licenses/
   repository: http://bitbucket.org/burak/cpan-parse-http-useragent/
-version: 0.38
+version: 0.39

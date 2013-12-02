@@ -96,8 +96,7 @@ sub strip_comments {
     foreach my $line ( split m{ \n }xms, $s ) {
         chomp $line;
         next if ! $line;
-        if ( my @m = $line =~ m{ \A [#] (.+?)? \z }xms ) {
-            next if ! $m[0]; # line only had a hash and nothing else
+        if ( my @m = $line =~ m{ \A [#] (.+?) \z }xms ) {
             if ( my @f = $m[0] =~ m{ \A \Q$COMMENT\E (.+?) \z }xms ) {
                 $file = trim( $f[0] );
             }
@@ -117,6 +116,9 @@ sub slurp {
     my $FH = IO::File->new;
     $FH->open( $file, 'r')
         or croak sprintf 'Can not open DB @ %s: %s', $file, $!;
+    if ( $] >= 5.008 ) {
+        eval q{binmode $FH, ':raw'; 1} or warn "Unable to set iolayer";
+    }
     my $rv = do { local $/; my $s = <$FH>; $s };
     $FH->close;
     return $rv;

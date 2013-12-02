@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
 
-$VERSION = '0.38';
+$VERSION = '0.39';
 
 use constant INIT_FIELD_COUNTER  => -1;
 use constant NO_IMATCH           => -1; # for index()
@@ -180,8 +180,8 @@ Parse::HTTP::UserAgent::Constants - Various constants
 
 =head1 DESCRIPTION
 
-This document describes version C<0.38> of C<Parse::HTTP::UserAgent::Constants>
-released on C<16 September 2013>.
+This document describes version C<0.39> of C<Parse::HTTP::UserAgent::Constants>
+released on C<2 December 2013>.
 
 Internal module
 
