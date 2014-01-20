@@ -1,9 +1,8 @@
 package Parse::HTTP::UserAgent;
 use strict;
 use warnings;
-use vars qw( $VERSION );
 
-$VERSION = '0.39';
+our $VERSION = '0.40_01';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -11,10 +10,12 @@ use base qw(
     Parse::HTTP::UserAgent::Base::Dumper
     Parse::HTTP::UserAgent::Base::Accessors
 );
+
 use overload '""',    => 'name',
              '0+',    => 'version',
              fallback => 1,
 ;
+
 use version;
 use Carp qw( croak );
 use Parse::HTTP::UserAgent::Constants qw(:all);
@@ -33,9 +34,12 @@ my %OSFIX = (
     'Win 9x 4.90'    => 'Windows Me',
     'Windows NT 5.0' => 'Windows 2000',
     'Windows NT 5.1' => 'Windows XP',
+    'Windows XP 5.1' => 'Windows XP', # huh?
     'Windows NT 5.2' => 'Windows Server 2003',
     'Windows NT 6.0' => 'Windows Vista / Server 2008',
     'Windows NT 6.1' => 'Windows 7',
+    'Windows NT 6.2' => 'Windows 8',
+    'Windows NT 6.3' => 'Windows 8.1',
 );
 
 sub new {
@@ -100,13 +104,17 @@ sub _parse {
 }
 
 sub _pre_parse {
-    my $self = shift;
-    $self->[IS_MAXTHON] = index(uc $self->[UA_STRING], 'MAXTHON') != NO_IMATCH;
-    my $ua = $self->[UA_STRING];
+    my $self  = shift;
+    my $ua    = $self->[UA_STRING];
+    my $uc_ua = uc $ua;
+
+    $self->[IS_MAXTHON] = index($uc_ua, 'MAXTHON')  != NO_IMATCH;
+    $self->[IS_TRIDENT] = index($uc_ua, 'TRIDENT/') != NO_IMATCH;
 
     my @parts;
     my $i     = 0;
     my $depth = 0;
+
     foreach my $token ( split RE_SPLIT_PARSE, $ua ) {
         if ( $token eq '(' ) {
             $i++ if ++$depth == 1;
@@ -135,12 +143,31 @@ sub _pre_parse {
 
 sub _do_parse {
     my($self, $m, $t, $e, @o) = @_;
+
     my $c = $t->[0] && $t->[0] eq 'compatible';
 
-    if ( $c && shift @{$t} && ! $e && ! $self->[IS_MAXTHON] ) {
+    if ( $c
+        && shift @{$t}                     # just inline removal of "compatible"
+        && ( ! $e || $self->[IS_TRIDENT] ) # older versions don't have junk outside, while newer might have
+        && ! $self->[IS_MAXTHON]           # be sure that this is not the faker
+    ) {
         my($n, $v) = split RE_WHITESPACE, $t->[0];
         if ( $n eq 'MSIE' && index($m, q{ }) == NO_IMATCH ) {
             return $self->_parse_msie($m, $t, $e, $n, $v);
+        }
+    }
+
+    if ( $self->[IS_TRIDENT] ) {
+        # http://blogs.msdn.com/b/ieinternals/archive/2013/09/21/internet-explorer-11-user-agent-string-ua-string-sniffing-compatibility-with-gecko-webkit.aspx
+        my %msie11 = map {
+              index( $_, 'Windows')  != NO_IMATCH ? ( windows => 1 )
+            : index( $_, 'Trident/') != NO_IMATCH ? ( trident => 1 )
+            : index( $_, 'rv:')      != NO_IMATCH ? ( version => 1 )
+            : ()
+        } @{ $t };
+
+        if ( keys %msie11 == 3 ){
+            return $self->_parse_msie_11($m, $t, $e);
         }
     }
 
@@ -243,6 +270,7 @@ sub _numify {
                 gold     |
                 [ab]\d+  |
                 a\-XXXX  |
+                dev      |
                 [+]
                )}{}xmsig
     ){
@@ -279,6 +307,7 @@ sub _numify {
     if ( INSIDE_VERBOSE_TEST ) {
         if ( @removed ) {
             my $r = join q{','}, @removed;
+            require Test::More;
             Test::More::diag("[DEBUG] _numify: removed '$r' from version string");
         }
     }
@@ -357,9 +386,12 @@ Parse::HTTP::UserAgent - Parser for the User Agent string
 
 =head1 DESCRIPTION
 
-This document describes version C<0.39> of C<Parse::HTTP::UserAgent>
-released on C<2 December 2013>.
+This document describes version C<0.40_01> of C<Parse::HTTP::UserAgent>
+released on C<20 January 2014>.
 
+B<WARNING>: This version of the module is part of a
+developer (beta) release of the distribution and it is
+not suitable for production use.
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
    " ... and then Google built Chrome, and Chrome used Webkit, and it was like
@@ -537,7 +569,7 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2009 - 2013 Burak Gursoy. All rights reserved.
+Copyright 2009 - 2014 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 

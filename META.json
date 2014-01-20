@@ -41,37 +41,37 @@
    "provides" : {
       "Parse::HTTP::UserAgent" : {
          "file" : "lib/Parse/HTTP/UserAgent.pm",
-         "version" : "0.39"
+         "version" : "0.40_01"
       },
       "Parse::HTTP::UserAgent::Base::Accessors" : {
          "file" : "lib/Parse/HTTP/UserAgent/Base/Accessors.pm",
-         "version" : "0.39"
+         "version" : "0.40_01"
       },
       "Parse::HTTP::UserAgent::Base::Dumper" : {
          "file" : "lib/Parse/HTTP/UserAgent/Base/Dumper.pm",
-         "version" : "0.39"
+         "version" : "0.40_01"
       },
       "Parse::HTTP::UserAgent::Base::IS" : {
          "file" : "lib/Parse/HTTP/UserAgent/Base/IS.pm",
-         "version" : "0.39"
+         "version" : "0.40_01"
       },
       "Parse::HTTP::UserAgent::Base::Parsers" : {
          "file" : "lib/Parse/HTTP/UserAgent/Base/Parsers.pm",
-         "version" : "0.39"
+         "version" : "0.40_01"
       },
       "Parse::HTTP::UserAgent::Constants" : {
          "file" : "lib/Parse/HTTP/UserAgent/Constants.pm",
-         "version" : "0.39"
+         "version" : "0.40_01"
       }
    },
-   "release_status" : "stable",
+   "release_status" : "testing",
    "resources" : {
       "license" : [
          "http://dev.perl.org/licenses/"
       ],
       "repository" : {
-         "url" : "http://bitbucket.org/burak/cpan-parse-http-useragent/"
+         "url" : "http://github.com/burak/cpan-parse-http-useragent/"
       }
    },
-   "version" : "0.39"
+   "version" : "0.40_01"
 }

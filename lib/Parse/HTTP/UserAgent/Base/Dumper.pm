@@ -1,11 +1,10 @@
 package Parse::HTTP::UserAgent::Base::Dumper;
 use strict;
 use warnings;
-use vars qw( $VERSION );
 use Carp qw( croak );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.39';
+our $VERSION = '0.40_01';
 
 sub dumper {
     my($self, @args) = @_;
@@ -77,19 +76,19 @@ sub _dumper_dumper {
     foreach my $id ( @ids ) {
         my $name = $args ? $id->{name} : $id;
         my $val  = $args ? $id->{value} : $self->[ $self->$id() ];
-        $val = do {
-                    my $d = Data::Dumper->new([$val]);
-                    $d->Indent(0);
-                    my $rv = $d->Dump;
-                    $rv =~ s{ \$VAR1 \s+ = \s+ }{}xms;
-                    $rv =~ s{ ; }{}xms;
-                    $rv eq '[]' ? q{} : $rv;
-                } if $val && ref $val;
+        if ( $val && ref $val ) {
+            my $d = Data::Dumper->new([$val]);
+            $d->Indent(0);
+            my $rv = $d->Dump;
+            $rv =~ s{ \$VAR1 \s+ = \s+ }{}xms;
+            $rv =~ s{ ; }{}xms;
+            $val = $rv eq '[]' ? q{} : $rv;
+        }
         push @buf, [
-                        $name,
-                        (q{ } x (2 + $max - length $name)),
-                        defined $val ? $val : q{}
-                    ];
+            $name,
+            (q{ } x (2 + $max - length $name)),
+            defined $val ? $val : q{}
+        ];
     }
     foreach my $row ( sort { lc $a->[0] cmp lc $b->[0] } @buf ) {
         $buf .= sprintf "%s%s%s\n", @{ $row };
@@ -109,9 +108,12 @@ Parse::HTTP::UserAgent::Base::Dumper - Base class to dump parsed structure
 
 =head1 DESCRIPTION
 
-This document describes version C<0.39> of C<Parse::HTTP::UserAgent::Base::Dumper>
-released on C<2 December 2013>.
+This document describes version C<0.40_01> of C<Parse::HTTP::UserAgent::Base::Dumper>
+released on C<20 January 2014>.
 
+B<WARNING>: This version of the module is part of a
+developer (beta) release of the distribution and it is
+not suitable for production use.
 The parsed structure can be dumped to a text table for debugging.
 
 =head1 METHODS
@@ -131,7 +133,7 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2009 - 2013 Burak Gursoy. All rights reserved.
+Copyright 2009 - 2014 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 

@@ -1,10 +1,9 @@
 package Parse::HTTP::UserAgent::Base::IS;
 use strict;
 use warnings;
-use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.39';
+our $VERSION = '0.40_01';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
@@ -155,9 +154,12 @@ Parse::HTTP::UserAgent::Base::IS - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.39> of C<Parse::HTTP::UserAgent::Base::IS>
-released on C<2 December 2013>.
+This document describes version C<0.40_01> of C<Parse::HTTP::UserAgent::Base::IS>
+released on C<20 January 2014>.
 
+B<WARNING>: This version of the module is part of a
+developer (beta) release of the distribution and it is
+not suitable for production use.
 Internal module.
 
 =head1 SEE ALSO
@@ -170,7 +172,7 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2009 - 2013 Burak Gursoy. All rights reserved.
+Copyright 2009 - 2014 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 

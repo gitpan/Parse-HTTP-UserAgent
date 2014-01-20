@@ -5,12 +5,17 @@ use base qw( Module::Build );
 
 ## no critic (InputOutput::ProhibitBacktickOperators)
 
-our $VERSION = '0.80';
+our $VERSION = '0.81';
 
+use Carp qw( croak  );
+use Cwd  qw( getcwd );
 use File::Find;
 use File::Spec;
 use File::Path;
-use Carp qw( croak );
+
+use constant {
+    CURRENT_DIR => getcwd,
+};
 
 use Build::Constants qw( :all );
 use Build::Spec;
@@ -368,12 +373,18 @@ sub _monolith_prove {
         croak "No `prove command found related to $^X`";
     }
 
+    if ( ! -x $prove ) {
+        croak "Found prove at `$prove` but it is not executable!";
+    }
+
     warn "\n\tFOUND `prove` at $prove\n\n";
 
     require IPC::Open3;
     my $prove_pid = IPC::Open3::open3(
                         my($prove_in, $prove_out, $prove_err),
-                        $prove, qw(-Ilib -r t xt)
+                        $prove,
+                            '-I', File::Spec->catdir( CURRENT_DIR, 'lib' ),
+                            '-r', ( map { File::Spec->catdir( CURRENT_DIR, $_) } qw( t xt ) )
                     );
 
     my $prove_status;

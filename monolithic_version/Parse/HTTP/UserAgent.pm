@@ -14,79 +14,13 @@ sub ________monolith {}
 package Parse::HTTP::UserAgent::Constants;
 use strict;
 use warnings;
-use vars qw( $VERSION $OID @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS );
+use base qw( Exporter );
 
-$VERSION = '0.39';
+our $VERSION = '0.40_01';
 
-use constant INIT_FIELD_COUNTER  => -1;
-use constant NO_IMATCH           => -1; # for index()
-use constant LAST_ELEMENT        => -1;
+our(@EXPORT, @EXPORT_OK, %EXPORT_TAGS);
 
-BEGIN { $OID = INIT_FIELD_COUNTER }
-
-use constant UA_STRING           => ++$OID; # just for information
-use constant UA_STRING_ORIGINAL  => ++$OID; # just for information
-use constant UA_UNKNOWN          => ++$OID; # failed to detect?
-use constant UA_GENERIC          => ++$OID; # parsed with a generic parser.
-use constant UA_NAME             => ++$OID; # The identifier of the ua
-use constant UA_VERSION_RAW      => ++$OID; # the parsed version
-use constant UA_VERSION          => ++$OID; # used for numerical ops. via qv()
-use constant UA_OS               => ++$OID; # Operating system
-use constant UA_LANG             => ++$OID; # the language of the ua interface
-use constant UA_TOOLKIT          => ++$OID; # [Opera] ua toolkit
-use constant UA_EXTRAS           => ++$OID; # Extra stuff (Toolbars?) non parsable junk
-use constant UA_DOTNET           => ++$OID; # [MSIE] List of .NET CLR versions
-use constant UA_STRENGTH         => ++$OID; # [MSIE] List of .NET CLR versions
-use constant UA_MOZILLA          => ++$OID; # [Firefox] Mozilla revision
-use constant UA_ROBOT            => ++$OID; # Is this a robot?
-use constant UA_WAP              => ++$OID; # unimplemented
-use constant UA_MOBILE           => ++$OID; # partially implemented
-use constant UA_TABLET           => ++$OID; # partially implemented
-use constant UA_PARSER           => ++$OID; # the parser name
-use constant UA_DEVICE           => ++$OID; # the name of the mobile device
-use constant UA_ORIGINAL_NAME    => ++$OID; # original name if this is some variation
-use constant UA_ORIGINAL_VERSION => ++$OID; # original version if this is some variation
-use constant IS_PARSED           => ++$OID; # _parse() happened or not
-use constant IS_MAXTHON          => ++$OID; # Is this the dumb IE faker?
-use constant IS_EXTENDED         => ++$OID;
-use constant MAXID               =>   $OID;
-
-use constant TK_NAME             => 0;
-use constant TK_ORIGINAL_VERSION => 1;
-use constant TK_VERSION          => 2;
-
-use constant INSIDE_UNIT_TEST    => $ENV{PARSE_HTTP_USERAGENT_TEST_SUITE};
-use constant INSIDE_VERBOSE_TEST => INSIDE_UNIT_TEST && $ENV{HARNESS_IS_VERBOSE};
-use constant RE_FIREFOX_NAMES    => qr{Firefox|Iceweasel|Firebird|Phoenix }xms;
-use constant RE_DOTNET           => qr{ \A [.]NET (?: \s+ CLR \s+ )? (.+?) \z    }xms;
-use constant RE_WINDOWS_OS       => qr{ \A Win(dows|NT|[0-9]+)?           }xmsi;
-use constant RE_SLASH            => qr{ /                                 }xms;
-use constant RE_SPLIT_PARSE      => qr{ \s? ([()]) \s?                    }xms;
-use constant RE_OPERA_MINI       => qr{ \A (Opera \s+ Mini) / (.+?) \z    }xms;
-use constant RE_TRIDENT          => qr{ \A (Trident) / (.+?) \z           }xmsi;
-use constant RE_EPIPHANY_GECKO   => qr{ \A (Epiphany) / (.+?) \z          }xmsi;
-use constant RE_WHITESPACE       => qr{ \s+ }xms;
-use constant RE_SC_WS            => qr{;\s?}xms;
-use constant RE_SC_WS_MULTI      => qr{;\s+?}xms;
-use constant RE_HTTP             => qr{ http:// }xms;
-use constant RE_DIGIT            => qr{[0-9]}xms;
-use constant RE_IX86             => qr{ \s i\d86 }xms;
-use constant RE_OBJECT_ID        => qr{ \A UA_ }xms;
-use constant RE_CHAR_SLASH_WS    => qr{[/\s]}xms;
-use constant RE_COMMA            => qr{ [,] }xms;
-use constant RE_TWO_LETTER_LANG  => qr{ \A [a-z]{2} \z }xms;
-use constant RE_DIGIT_DOT_DIGIT  => qr{\d+[.]?\d}xms;
-
-use constant RE_WARN_OVERFLOW => qr{\QInteger overflow in version\E}xms;
-use constant RE_WARN_INVALID  => qr{\QVersion string\E .+? \Qcontains invalid data; ignoring:\E}xms;
-
-use constant ERROR_MAXTHON_VERSION  => 'Unable to extract Maxthon version from Maxthon UA-string';
-use constant ERROR_MAXTHON_MSIE     => 'Unable to extract MSIE from Maxthon UA-string';
-use constant OPERA9                 => 9;
-use constant OPERA_TK_LENGTH        => 5;
-use constant OPERA_FAKER_EXTRA_SIZE => 4;
-
-use constant LIST_ROBOTS         => qw(
+use constant LIST_ROBOTS => qw(
     Wget
     curl
     libwww-perl
@@ -97,13 +31,92 @@ use constant LIST_ROBOTS         => qw(
     bingbot
 ), 'Yahoo! Slurp';
 
-use base qw( Exporter );
+BEGIN {
+    my @fields = (
+        'IS_EXTENDED',
+        'IS_MAXTHON',           # Is this the dumb IE faker?
+        'IS_PARSED',            # _parse() happened or not
+        'IS_TRIDENT',           # Thanks to Microsoft, this now has a meaning
+        'UA_DEVICE',            # the name of the mobile device
+        'UA_DOTNET',            # [MSIE] List of .NET CLR versions
+        'UA_EXTRAS',            # Extra stuff (Toolbars?) non parsable junk
+        'UA_GENERIC',           # parsed with a generic parser.
+        'UA_LANG',              # the language of the ua interface
+        'UA_MOBILE',            # partially implemented
+        'UA_MOZILLA',           # [Firefox] Mozilla revision
+        'UA_NAME',              # The identifier of the ua
+        'UA_ORIGINAL_NAME',     # original name if this is some variation
+        'UA_ORIGINAL_VERSION',  # original version if this is some variation
+        'UA_OS',                # Operating system
+        'UA_PARSER',            # the parser name
+        'UA_ROBOT',             # Is this a robot?
+        'UA_STRENGTH',          # [MSIE] List of .NET CLR versions
+        'UA_STRING',            # just for information
+        'UA_STRING_ORIGINAL',   # just for information
+        'UA_TABLET',            # partially implemented
+        'UA_TOOLKIT',           # [Opera] ua toolkit
+        'UA_TOUCH',             # windows only?
+        'UA_UNKNOWN',           # failed to detect?
+        'UA_VERSION',           # used for numerical ops. via qv()
+        'UA_VERSION_RAW',       # the parsed version
+        'UA_WAP',               # unimplemented
+    );
+
+    my $oid   = -1;
+    my %field = map { $_ => ++$oid } @fields;
+    my %const = (
+        %field,
+        LAST_ELEMENT           => -1,
+        MAXID                  => $oid,
+        NO_IMATCH              => -1, # for index()
+
+        RE_CHAR_SLASH_WS       => qr{ [/\s]                                 }xms,
+        RE_COMMA               => qr{ [,]                                   }xms,
+        RE_DIGIT               => qr{ [0-9]                                 }xms,
+        RE_DIGIT_DOT_DIGIT     => qr{ \d+ [.]? \d                           }xms,
+        RE_DOTNET              => qr{ \A [.]NET (?: \s+ CLR \s+ )? (.+?) \z }xms,
+        RE_EPIPHANY_GECKO      => qr{ \A (Epiphany) / (.+?) \z              }xmsi,
+        RE_FIREFOX_NAMES       => qr{ Firefox|Iceweasel|Firebird|Phoenix    }xms,
+        RE_HTTP                => qr{ http://                               }xms,
+        RE_IX86                => qr{ \s i\d86                              }xms,
+        RE_OBJECT_ID           => qr{ \A UA_                                }xms,
+        RE_OPERA_MINI          => qr{ \A (Opera \s+ Mini) / (.+?) \z        }xms,
+        RE_SC_WS               => qr{ ; \s?                                 }xms,
+        RE_SC_WS_MULTI         => qr{ ; \s+?                                }xms,
+        RE_SLASH               => qr{ /                                     }xms,
+        RE_SPLIT_PARSE         => qr{ \s? ([()]) \s?                        }xms,
+        RE_TWO_LETTER_LANG     => qr{ \A [a-z]{2} \z                        }xms,
+        RE_WARN_INVALID        => qr{ \QVersion string\E .+? \Qcontains invalid data; ignoring:\E}xms,
+        RE_WARN_OVERFLOW       => qr{ \QInteger overflow in version\E       }xms,
+        RE_WHITESPACE          => qr{ \s+ }xms,
+        RE_WINDOWS_OS          => qr{ \A Win(dows|NT|[0-9]+)?               }xmsi,
+
+        ERROR_MAXTHON_MSIE     => 'Unable to extract MSIE from Maxthon UA-string',
+        ERROR_MAXTHON_VERSION  => 'Unable to extract Maxthon version from Maxthon UA-string',
+
+        OPERA9                 => 9,
+        OPERA_FAKER_EXTRA_SIZE => 4,
+        OPERA_TK_LENGTH        => 5,
+
+        TK_NAME                => 0,
+        TK_ORIGINAL_VERSION    => 1,
+        TK_VERSION             => 2,
+    );
+
+    $const{INSIDE_UNIT_TEST}    = $ENV{PARSE_HTTP_USERAGENT_TEST_SUITE} ? 1 : 0;
+    $const{INSIDE_VERBOSE_TEST} = $const{INSIDE_UNIT_TEST}
+                                    && $ENV{HARNESS_IS_VERBOSE} ? 1 : 0;
+
+    require constant;
+    constant->import( \%const );
+}
 
 BEGIN {
     %EXPORT_TAGS = (
         object_ids => [qw(
             IS_PARSED
             IS_MAXTHON
+            IS_TRIDENT
             IS_EXTENDED
             UA_STRING
             UA_STRING_ORIGINAL
@@ -123,6 +136,7 @@ BEGIN {
             UA_WAP
             UA_MOBILE
             UA_TABLET
+            UA_TOUCH
             UA_PARSER
             UA_DEVICE
             UA_ORIGINAL_NAME
@@ -136,7 +150,6 @@ BEGIN {
             RE_SLASH
             RE_SPLIT_PARSE
             RE_OPERA_MINI
-            RE_TRIDENT
             RE_EPIPHANY_GECKO
             RE_WHITESPACE
             RE_SC_WS
@@ -184,10 +197,9 @@ BEGIN {
 package Parse::HTTP::UserAgent::Base::Parsers;
 use strict;
 use warnings;
-use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.39';
+our $VERSION = '0.40_01';
 
 sub _extract_dotnet {
     my($self, @args) = @_;
@@ -325,6 +337,7 @@ sub _parse_maxthon {
 sub _parse_msie {
     my($self, $moz, $thing, $extra, $name, $version) = @_;
     my $junk = shift @{ $thing }; # already used
+
     my($extras,$dotnet) = $self->_extract_dotnet( $thing, $extra );
 
     if ( @{$extras} == 2 && index( $extras->[1], 'Lunascape' ) != NO_IMATCH ) {
@@ -339,23 +352,91 @@ sub _parse_msie {
         $self->[UA_OS] = shift @{ $extras };
     }
 
+    my $real_version;
     my @buf;
     foreach my $e ( @{ $extras } ) {
-        if ( $e =~ RE_TRIDENT ) {
-            $self->[UA_TOOLKIT] = [ $1, $2 ];
+        if ( index( $e, 'Trident/' ) != NO_IMATCH ) {
+            my($tk_name, $tk_version) = split m{[/]}xms, $e, 2;
+            $self->[UA_TOOLKIT] = [ $tk_name, $tk_version ];
+            if ( $tk_name eq 'Trident' && $tk_version ) {
+                if ( $tk_version eq '7.0' && $self->[UA_VERSION_RAW] ne '11.0' ) {
+                    # more stupidity (compat mode)
+                    $self->[UA_ORIGINAL_NAME]    = 'MSIE';
+                    $self->[UA_ORIGINAL_VERSION] = 11;
+                }
+                elsif ( $tk_version eq '6.0' && $self->[UA_VERSION_RAW] ne '10.0') {
+                    # more stupidity (compat mode)
+                    $self->[UA_ORIGINAL_NAME]    = 'MSIE';
+                    $self->[UA_ORIGINAL_VERSION] = 10;
+                }
+                else {
+                    # must be the real version or some other stupidity
+                }
+            }
             next;
         }
         push @buf, $e;
     }
 
-    $self->[UA_EXTRAS] = [
-        map  { $self->trim( $_ ) }
+    my @extras =
+        map  {
+            my $thing = $self->trim( $_ );
+            lc($thing) eq 'touch'
+                ? do {
+                    $self->[UA_TOUCH]  = 1;
+                    $self->[UA_MOBILE] = 1;
+                    ();
+                  }
+                : $thing
+                ;
+        }
         grep { $_ !~ m{ \s+ compatible \z }xms }
         @buf
-    ];
+    ;
 
+    $self->[UA_EXTRAS] = [ @extras ] if @extras;
     $self->[UA_PARSER] = 'msie';
 
+    return 1;
+}
+
+sub _parse_msie_11 {
+    my($self, $moz, $thing, $extra) = @_;
+
+    if ( ref $extra eq 'ARRAY' ) {
+        # remove junk
+        @{$extra} = grep { $_ ne 'like' && $_ ne 'Gecko' } @{ $extra };
+    }
+    else {
+        $extra = [];
+    }
+
+    my($version);
+    while ( my $e = shift @{ $thing } ) {
+        if (  index($e, 'rv:' ) != NO_IMATCH ) {
+            $version = (split m{rv:}xms, $e )[1] ;
+            next;
+        }
+        push @{ $extra }, $e;
+    }
+
+    $self->_parse_msie( undef, $thing, $extra, 'MSIE', $version) || return;
+
+    if ( $self->[UA_TOUCH] && $self->[UA_EXTRAS] ) {
+        # version 10+
+        $self->[UA_EXTRAS] = [
+            map {
+                $_ eq 'ARM'
+                    ? do {
+                        $self->[UA_DEVICE] = $_;
+                        ()
+                      }
+                    : $_
+            } @{ $self->[UA_EXTRAS] }
+        ];
+    }
+
+    $self->[UA_PARSER] = 'msie11';
     return 1;
 }
 
@@ -762,6 +843,21 @@ sub _generic_moz_thing {
     my($mname, $mversion, @rest) = split RE_CHAR_SLASH_WS, $moz;
     return if $mname eq 'Mozilla' || $mname eq 'Emacs-W3';
 
+    if ( index( $mname, 'Nokia' ) != NO_IMATCH ) {
+        my($device, $num, $os, $series, @junk) = split m{[\s]+}xms,
+                                                    $self->[UA_STRING_ORIGINAL];
+        if (   $device
+            && $num
+            && $os
+            && $series
+            && index( $os, 'SymbianOS' ) != NO_IMATCH
+        ) {
+            return $self->_parse_symbian(
+                        join ';', $os, "$series $device", join(q{ }, @junk, $num)
+                    );
+        }
+    }
+
     $self->[UA_NAME]        = $mname;
     $self->[UA_VERSION_RAW] = $mversion || ( $mname eq 'Links' ? shift @{$t} : 0 );
     $self->[UA_OS] = @rest                                     ? join(q{ }, @rest)
@@ -820,8 +916,8 @@ sub _generic_compatible {
         if ( $self->_is_generic_bogus_ie( $extra ) ) {
             # edge case
             my($n, $v) = split RE_WHITESPACE, shift @orig_thing;
-            my $e = [ split RE_SC_WS, join q{ }, @{ $extra } ];
-            my $t = \@orig_thing;
+            my $e      = [ split RE_SC_WS, join q{ }, @{ $extra } ];
+            my $t      = \@orig_thing;
             push @{ $e }, grep { $_ } map { split RE_SC_WS, $_ } @others;
             $self->_parse_msie( $moz, $thing, $e, $n, $v );
             return 1;
@@ -838,6 +934,15 @@ sub _generic_compatible {
     }
 
     @extras = (@{$thing}, $extra ? @{$extra} : (), @others ) if ! @extras;
+
+    if ( $lang && index( $lang, 'MSIE ') != NO_IMATCH ) {
+        return $self->_parse_msie(
+                    $moz,
+                    [],
+                    [$os, "$name/$version", @extras], # junk
+                    split( m{[\s]+}xms, $lang, 2 ),   # name, version
+                );
+    }
 
     $self->_fix_generic( \$os, \$name, \$version, \@extras );
 
@@ -870,18 +975,47 @@ sub _parse_emacs {
 }
 
 sub _parse_moz_only {
-    my($self, $moz) = @_;
+    my $self  = shift;
+    my($moz)  = @_;
     my @parts = split RE_WHITESPACE, $moz;
     my $id = shift @parts;
     my($name, $version) = split RE_SLASH, $id;
+
+    if ( index( $name, 'Symbian' ) != NO_IMATCH ) {
+        return $self->_parse_symbian( $moz );
+    }
+
     if ( $name eq 'Mozilla' && @parts ) {
         ($name, $version) = split RE_SLASH, shift @parts;
         return if ! $name || ! $version;
     }
+
     $self->[UA_NAME]        = $name;
     $self->[UA_VERSION_RAW] = $version || 0;
     $self->[UA_EXTRAS]      = [ @parts ];
     $self->[UA_PARSER]      = 'moz_only';
+    $self->[UA_ROBOT]       = 1 if ! $self->[UA_VERSION_RAW];
+
+    return 1;
+}
+
+sub _parse_symbian {
+    my($self, $raw) = @_;
+    my($os, $series_device, @rest) = split m{[;]\s?}xms, $raw;
+
+    return if ! $os || ! $series_device;
+
+    my($series, $device) = split m{[\s]+}xms, $series_device;
+
+    return if ! $device;
+
+    @{ $self }[ UA_NAME, UA_VERSION_RAW ] = split RE_SLASH, $series, 2;
+    $self->[UA_OS]     = $os;
+    $self->[UA_DEVICE] = $device;
+    $self->[UA_EXTRAS] = [ map { split m{[\s]+}xms, $_ } @rest ];
+    $self->[UA_MOBILE] = 1;
+    $self->[UA_PARSER] = 'symbian';
+
     return 1;
 }
 
@@ -923,10 +1057,9 @@ sub _parse_docomo {
 package Parse::HTTP::UserAgent::Base::IS;
 use strict;
 use warnings;
-use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.39';
+our $VERSION = '0.40_01';
 
 sub _is_opera_pre {
     my($self, $moz) = @_;
@@ -1068,11 +1201,10 @@ sub _is_generic_bogus_ie {
 package Parse::HTTP::UserAgent::Base::Dumper;
 use strict;
 use warnings;
-use vars qw( $VERSION );
 use Carp qw( croak );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.39';
+our $VERSION = '0.40_01';
 
 sub dumper {
     my($self, @args) = @_;
@@ -1144,19 +1276,19 @@ sub _dumper_dumper {
     foreach my $id ( @ids ) {
         my $name = $args ? $id->{name} : $id;
         my $val  = $args ? $id->{value} : $self->[ $self->$id() ];
-        $val = do {
-                    my $d = Data::Dumper->new([$val]);
-                    $d->Indent(0);
-                    my $rv = $d->Dump;
-                    $rv =~ s{ \$VAR1 \s+ = \s+ }{}xms;
-                    $rv =~ s{ ; }{}xms;
-                    $rv eq '[]' ? q{} : $rv;
-                } if $val && ref $val;
+        if ( $val && ref $val ) {
+            my $d = Data::Dumper->new([$val]);
+            $d->Indent(0);
+            my $rv = $d->Dump;
+            $rv =~ s{ \$VAR1 \s+ = \s+ }{}xms;
+            $rv =~ s{ ; }{}xms;
+            $val = $rv eq '[]' ? q{} : $rv;
+        }
         push @buf, [
-                        $name,
-                        (q{ } x (2 + $max - length $name)),
-                        defined $val ? $val : q{}
-                    ];
+            $name,
+            (q{ } x (2 + $max - length $name)),
+            defined $val ? $val : q{}
+        ];
     }
     foreach my $row ( sort { lc $a->[0] cmp lc $b->[0] } @buf ) {
         $buf .= sprintf "%s%s%s\n", @{ $row };
@@ -1167,29 +1299,27 @@ sub _dumper_dumper {
 package Parse::HTTP::UserAgent::Base::Accessors;
 use strict;
 use warnings;
-use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.39';
-
-#TODO: new accessors
-#wap
-#mobile
-#device
-#tablet
+our $VERSION = '0.40_01';
 
 BEGIN {
     my @simple = qw(
-        name
-        unknown
+        device
         generic
-        os
         lang
-        strength
-        parser
+        mobile
+        name
         original_name
         original_version
+        os
+        parser
         robot
+        strength
+        tablet
+        touch
+        unknown
+        wap
     );
 
     my @multi = qw(
@@ -1260,9 +1390,8 @@ sub version {
 package Parse::HTTP::UserAgent;
 use strict;
 use warnings;
-use vars qw( $VERSION );
 
-$VERSION = '0.39';
+our $VERSION = '0.40_01';
 
 use base qw(
     Parse::HTTP::UserAgent::Base::IS
@@ -1270,10 +1399,12 @@ use base qw(
     Parse::HTTP::UserAgent::Base::Dumper
     Parse::HTTP::UserAgent::Base::Accessors
 );
+
 use overload '""',    => 'name',
              '0+',    => 'version',
              fallback => 1,
 ;
+
 use version;
 use Carp qw( croak );
 use Parse::HTTP::UserAgent::Constants qw(:all);
@@ -1292,9 +1423,12 @@ my %OSFIX = (
     'Win 9x 4.90'    => 'Windows Me',
     'Windows NT 5.0' => 'Windows 2000',
     'Windows NT 5.1' => 'Windows XP',
+    'Windows XP 5.1' => 'Windows XP', # huh?
     'Windows NT 5.2' => 'Windows Server 2003',
     'Windows NT 6.0' => 'Windows Vista / Server 2008',
     'Windows NT 6.1' => 'Windows 7',
+    'Windows NT 6.2' => 'Windows 8',
+    'Windows NT 6.3' => 'Windows 8.1',
 );
 
 sub new {
@@ -1359,13 +1493,17 @@ sub _parse {
 }
 
 sub _pre_parse {
-    my $self = shift;
-    $self->[IS_MAXTHON] = index(uc $self->[UA_STRING], 'MAXTHON') != NO_IMATCH;
-    my $ua = $self->[UA_STRING];
+    my $self  = shift;
+    my $ua    = $self->[UA_STRING];
+    my $uc_ua = uc $ua;
+
+    $self->[IS_MAXTHON] = index($uc_ua, 'MAXTHON')  != NO_IMATCH;
+    $self->[IS_TRIDENT] = index($uc_ua, 'TRIDENT/') != NO_IMATCH;
 
     my @parts;
     my $i     = 0;
     my $depth = 0;
+
     foreach my $token ( split RE_SPLIT_PARSE, $ua ) {
         if ( $token eq '(' ) {
             $i++ if ++$depth == 1;
@@ -1394,12 +1532,31 @@ sub _pre_parse {
 
 sub _do_parse {
     my($self, $m, $t, $e, @o) = @_;
+
     my $c = $t->[0] && $t->[0] eq 'compatible';
 
-    if ( $c && shift @{$t} && ! $e && ! $self->[IS_MAXTHON] ) {
+    if ( $c
+        && shift @{$t}                     # just inline removal of "compatible"
+        && ( ! $e || $self->[IS_TRIDENT] ) # older versions don't have junk outside, while newer might have
+        && ! $self->[IS_MAXTHON]           # be sure that this is not the faker
+    ) {
         my($n, $v) = split RE_WHITESPACE, $t->[0];
         if ( $n eq 'MSIE' && index($m, q{ }) == NO_IMATCH ) {
             return $self->_parse_msie($m, $t, $e, $n, $v);
+        }
+    }
+
+    if ( $self->[IS_TRIDENT] ) {
+        # http://blogs.msdn.com/b/ieinternals/archive/2013/09/21/internet-explorer-11-user-agent-string-ua-string-sniffing-compatibility-with-gecko-webkit.aspx
+        my %msie11 = map {
+              index( $_, 'Windows')  != NO_IMATCH ? ( windows => 1 )
+            : index( $_, 'Trident/') != NO_IMATCH ? ( trident => 1 )
+            : index( $_, 'rv:')      != NO_IMATCH ? ( version => 1 )
+            : ()
+        } @{ $t };
+
+        if ( keys %msie11 == 3 ){
+            return $self->_parse_msie_11($m, $t, $e);
         }
     }
 
@@ -1502,6 +1659,7 @@ sub _numify {
                 gold     |
                 [ab]\d+  |
                 a\-XXXX  |
+                dev      |
                 [+]
                )}{}xmsig
     ){
@@ -1538,6 +1696,7 @@ sub _numify {
     if ( INSIDE_VERBOSE_TEST ) {
         if ( @removed ) {
             my $r = join q{','}, @removed;
+            require Test::More;
             Test::More::diag("[DEBUG] _numify: removed '$r' from version string");
         }
     }
@@ -1621,9 +1780,12 @@ generated with an automatic build tool. If you experience problems
 with this version, please install and use the supported standard
 version. This version is B<NOT SUPPORTED>.
 
-This document describes version C<0.39> of C<Parse::HTTP::UserAgent>
-released on C<2 December 2013>.
+This document describes version C<0.40_01> of C<Parse::HTTP::UserAgent>
+released on C<20 January 2014>.
 
+B<WARNING>: This version of the module is part of a
+developer (beta) release of the distribution and it is
+not suitable for production use.
 Quoting L<http://www.webaim.org/blog/user-agent-string-history/>:
 
    " ... and then Google built Chrome, and Chrome used Webkit, and it was like
@@ -1801,7 +1963,7 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2009 - 2013 Burak Gursoy. All rights reserved.
+Copyright 2009 - 2014 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 

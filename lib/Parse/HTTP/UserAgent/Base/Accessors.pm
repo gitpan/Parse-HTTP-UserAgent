@@ -1,29 +1,27 @@
 package Parse::HTTP::UserAgent::Base::Accessors;
 use strict;
 use warnings;
-use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.39';
-
-#TODO: new accessors
-#wap
-#mobile
-#device
-#tablet
+our $VERSION = '0.40_01';
 
 BEGIN {
     my @simple = qw(
-        name
-        unknown
+        device
         generic
-        os
         lang
-        strength
-        parser
+        mobile
+        name
         original_name
         original_version
+        os
+        parser
         robot
+        strength
+        tablet
+        touch
+        unknown
+        wap
     );
 
     my @multi = qw(
@@ -112,14 +110,19 @@ Parse::HTTP::UserAgent::Base::Accessors - Available accessors
 
 =head1 DESCRIPTION
 
-This document describes version C<0.39> of C<Parse::HTTP::UserAgent::Base::Accessors>
-released on C<2 December 2013>.
+This document describes version C<0.40_01> of C<Parse::HTTP::UserAgent::Base::Accessors>
+released on C<20 January 2014>.
 
+B<WARNING>: This version of the module is part of a
+developer (beta) release of the distribution and it is
+not suitable for production use.
 Ther methods can be used to access the various parts of the parsed structure.
 
 =head1 ACCESSORS
 
 The parts of the parsed structure can be accessed using these methods:
+
+=head2 device
 
 =head2 dotnet
 
@@ -128,6 +131,8 @@ The parts of the parsed structure can be accessed using these methods:
 =head2 generic
 
 =head2 lang
+
+=head2 mobile
 
 =head2 mozilla
 
@@ -145,11 +150,17 @@ The parts of the parsed structure can be accessed using these methods:
 
 =head2 strength
 
+=head2 tablet
+
+=head2 touch
+
 =head2 toolkit
 
 =head2 unknown
 
 =head2 version
+
+=head2 wap
 
 =head1 SEE ALSO
 
@@ -161,7 +172,7 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2009 - 2013 Burak Gursoy. All rights reserved.
+Copyright 2009 - 2014 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 

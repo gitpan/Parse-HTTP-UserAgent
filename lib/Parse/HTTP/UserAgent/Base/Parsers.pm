@@ -1,10 +1,9 @@
 package Parse::HTTP::UserAgent::Base::Parsers;
 use strict;
 use warnings;
-use vars qw( $VERSION );
 use Parse::HTTP::UserAgent::Constants qw(:all);
 
-$VERSION = '0.39';
+our $VERSION = '0.40_01';
 
 sub _extract_dotnet {
     my($self, @args) = @_;
@@ -142,6 +141,7 @@ sub _parse_maxthon {
 sub _parse_msie {
     my($self, $moz, $thing, $extra, $name, $version) = @_;
     my $junk = shift @{ $thing }; # already used
+
     my($extras,$dotnet) = $self->_extract_dotnet( $thing, $extra );
 
     if ( @{$extras} == 2 && index( $extras->[1], 'Lunascape' ) != NO_IMATCH ) {
@@ -156,23 +156,91 @@ sub _parse_msie {
         $self->[UA_OS] = shift @{ $extras };
     }
 
+    my $real_version;
     my @buf;
     foreach my $e ( @{ $extras } ) {
-        if ( $e =~ RE_TRIDENT ) {
-            $self->[UA_TOOLKIT] = [ $1, $2 ];
+        if ( index( $e, 'Trident/' ) != NO_IMATCH ) {
+            my($tk_name, $tk_version) = split m{[/]}xms, $e, 2;
+            $self->[UA_TOOLKIT] = [ $tk_name, $tk_version ];
+            if ( $tk_name eq 'Trident' && $tk_version ) {
+                if ( $tk_version eq '7.0' && $self->[UA_VERSION_RAW] ne '11.0' ) {
+                    # more stupidity (compat mode)
+                    $self->[UA_ORIGINAL_NAME]    = 'MSIE';
+                    $self->[UA_ORIGINAL_VERSION] = 11;
+                }
+                elsif ( $tk_version eq '6.0' && $self->[UA_VERSION_RAW] ne '10.0') {
+                    # more stupidity (compat mode)
+                    $self->[UA_ORIGINAL_NAME]    = 'MSIE';
+                    $self->[UA_ORIGINAL_VERSION] = 10;
+                }
+                else {
+                    # must be the real version or some other stupidity
+                }
+            }
             next;
         }
         push @buf, $e;
     }
 
-    $self->[UA_EXTRAS] = [
-        map  { $self->trim( $_ ) }
+    my @extras =
+        map  {
+            my $thing = $self->trim( $_ );
+            lc($thing) eq 'touch'
+                ? do {
+                    $self->[UA_TOUCH]  = 1;
+                    $self->[UA_MOBILE] = 1;
+                    ();
+                  }
+                : $thing
+                ;
+        }
         grep { $_ !~ m{ \s+ compatible \z }xms }
         @buf
-    ];
+    ;
 
+    $self->[UA_EXTRAS] = [ @extras ] if @extras;
     $self->[UA_PARSER] = 'msie';
 
+    return 1;
+}
+
+sub _parse_msie_11 {
+    my($self, $moz, $thing, $extra) = @_;
+
+    if ( ref $extra eq 'ARRAY' ) {
+        # remove junk
+        @{$extra} = grep { $_ ne 'like' && $_ ne 'Gecko' } @{ $extra };
+    }
+    else {
+        $extra = [];
+    }
+
+    my($version);
+    while ( my $e = shift @{ $thing } ) {
+        if (  index($e, 'rv:' ) != NO_IMATCH ) {
+            $version = (split m{rv:}xms, $e )[1] ;
+            next;
+        }
+        push @{ $extra }, $e;
+    }
+
+    $self->_parse_msie( undef, $thing, $extra, 'MSIE', $version) || return;
+
+    if ( $self->[UA_TOUCH] && $self->[UA_EXTRAS] ) {
+        # version 10+
+        $self->[UA_EXTRAS] = [
+            map {
+                $_ eq 'ARM'
+                    ? do {
+                        $self->[UA_DEVICE] = $_;
+                        ()
+                      }
+                    : $_
+            } @{ $self->[UA_EXTRAS] }
+        ];
+    }
+
+    $self->[UA_PARSER] = 'msie11';
     return 1;
 }
 
@@ -579,6 +647,21 @@ sub _generic_moz_thing {
     my($mname, $mversion, @rest) = split RE_CHAR_SLASH_WS, $moz;
     return if $mname eq 'Mozilla' || $mname eq 'Emacs-W3';
 
+    if ( index( $mname, 'Nokia' ) != NO_IMATCH ) {
+        my($device, $num, $os, $series, @junk) = split m{[\s]+}xms,
+                                                    $self->[UA_STRING_ORIGINAL];
+        if (   $device
+            && $num
+            && $os
+            && $series
+            && index( $os, 'SymbianOS' ) != NO_IMATCH
+        ) {
+            return $self->_parse_symbian(
+                        join ';', $os, "$series $device", join(q{ }, @junk, $num)
+                    );
+        }
+    }
+
     $self->[UA_NAME]        = $mname;
     $self->[UA_VERSION_RAW] = $mversion || ( $mname eq 'Links' ? shift @{$t} : 0 );
     $self->[UA_OS] = @rest                                     ? join(q{ }, @rest)
@@ -637,8 +720,8 @@ sub _generic_compatible {
         if ( $self->_is_generic_bogus_ie( $extra ) ) {
             # edge case
             my($n, $v) = split RE_WHITESPACE, shift @orig_thing;
-            my $e = [ split RE_SC_WS, join q{ }, @{ $extra } ];
-            my $t = \@orig_thing;
+            my $e      = [ split RE_SC_WS, join q{ }, @{ $extra } ];
+            my $t      = \@orig_thing;
             push @{ $e }, grep { $_ } map { split RE_SC_WS, $_ } @others;
             $self->_parse_msie( $moz, $thing, $e, $n, $v );
             return 1;
@@ -655,6 +738,15 @@ sub _generic_compatible {
     }
 
     @extras = (@{$thing}, $extra ? @{$extra} : (), @others ) if ! @extras;
+
+    if ( $lang && index( $lang, 'MSIE ') != NO_IMATCH ) {
+        return $self->_parse_msie(
+                    $moz,
+                    [],
+                    [$os, "$name/$version", @extras], # junk
+                    split( m{[\s]+}xms, $lang, 2 ),   # name, version
+                );
+    }
 
     $self->_fix_generic( \$os, \$name, \$version, \@extras );
 
@@ -687,18 +779,47 @@ sub _parse_emacs {
 }
 
 sub _parse_moz_only {
-    my($self, $moz) = @_;
+    my $self  = shift;
+    my($moz)  = @_;
     my @parts = split RE_WHITESPACE, $moz;
     my $id = shift @parts;
     my($name, $version) = split RE_SLASH, $id;
+
+    if ( index( $name, 'Symbian' ) != NO_IMATCH ) {
+        return $self->_parse_symbian( $moz );
+    }
+
     if ( $name eq 'Mozilla' && @parts ) {
         ($name, $version) = split RE_SLASH, shift @parts;
         return if ! $name || ! $version;
     }
+
     $self->[UA_NAME]        = $name;
     $self->[UA_VERSION_RAW] = $version || 0;
     $self->[UA_EXTRAS]      = [ @parts ];
     $self->[UA_PARSER]      = 'moz_only';
+    $self->[UA_ROBOT]       = 1 if ! $self->[UA_VERSION_RAW];
+
+    return 1;
+}
+
+sub _parse_symbian {
+    my($self, $raw) = @_;
+    my($os, $series_device, @rest) = split m{[;]\s?}xms, $raw;
+
+    return if ! $os || ! $series_device;
+
+    my($series, $device) = split m{[\s]+}xms, $series_device;
+
+    return if ! $device;
+
+    @{ $self }[ UA_NAME, UA_VERSION_RAW ] = split RE_SLASH, $series, 2;
+    $self->[UA_OS]     = $os;
+    $self->[UA_DEVICE] = $device;
+    $self->[UA_EXTRAS] = [ map { split m{[\s]+}xms, $_ } @rest ];
+    $self->[UA_MOBILE] = 1;
+    $self->[UA_PARSER] = 'symbian';
+
     return 1;
 }
 
@@ -749,9 +870,12 @@ Parse::HTTP::UserAgent::Base::Parsers - Base class
 
 =head1 DESCRIPTION
 
-This document describes version C<0.39> of C<Parse::HTTP::UserAgent::Base::Parsers>
-released on C<2 December 2013>.
+This document describes version C<0.40_01> of C<Parse::HTTP::UserAgent::Base::Parsers>
+released on C<20 January 2014>.
 
+B<WARNING>: This version of the module is part of a
+developer (beta) release of the distribution and it is
+not suitable for production use.
 Internal module.
 
 =head1 SEE ALSO
@@ -764,7 +888,7 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2009 - 2013 Burak Gursoy. All rights reserved.
+Copyright 2009 - 2014 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 
